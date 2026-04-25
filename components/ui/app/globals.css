@@ -1,0 +1,118 @@
+@import "tailwindcss";
+
+/* ================================================================
+   ALQIS DESIGN TOKENS — Tailwind v4 @theme
+   These generate utility classes (bg-bg, text-ink, etc.) and CSS
+   variables automatically. Change values here, app updates globally.
+   ================================================================ */
+@theme {
+  /* --- Color system ---------------------------------------------- */
+  --color-bg: #13294b;              /* Canvas — the deep navy */
+  --color-surface: #1a3158;         /* Elevated cards, navy +7% L */
+  --color-surface-2: #223a66;       /* Modals, popovers, navy +14% L */
+  --color-ink: #f5efe0;             /* Primary text — the cream */
+  --color-ink-muted: #a8a595;       /* Secondary text, metadata */
+  --color-ink-subtle: #6e6e66;      /* Disabled, hint, placeholder */
+  --color-border: #2a4270;          /* Hairlines, dividers */
+  --color-border-strong: #3a5590;   /* Hover/focus borders */
+
+  --color-accent: #c4553c;          /* Terracotta — CTAs, focus */
+  --color-accent-hover: #b04a32;
+  --color-accent-muted: #7a3522;    /* For subtle tinted fills */
+
+  --color-gain: #8fa876;            /* Muted sage */
+  --color-gain-muted: #4f5e3f;
+  --color-loss: #b54843;            /* Muted brick */
+  --color-loss-muted: #5f2423;
+  --color-warn: #d4a047;            /* Low-confidence, disclaimers */
+
+  /* --- Typography ----------------------------------------------- */
+  --font-sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-serif: var(--font-instrument-serif), ui-serif, "Iowan Old Style",
+    Georgia, serif;
+
+  /* Scale: base 16, ratio 1.25 (major third) */
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.375rem;
+  --text-5xl: 3rem;
+  --text-display: 4rem;
+
+  /* --- Radius --------------------------------------------------- */
+  --radius-sm: 0.25rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+  --radius-xl: 1rem;
+
+  /* --- Motion --------------------------------------------------- */
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+  --duration-fast: 120ms;
+  --duration-base: 180ms;
+  --duration-slow: 280ms;
+}
+
+/* ================================================================
+   Base layer — resets and global styles
+   ================================================================ */
+@layer base {
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-ink);
+    font-family: var(--font-sans);
+    /* Subtle grain layered on the canvas for editorial paper feel.
+       If this feels too busy in practice, remove this block. */
+    background-image: radial-gradient(
+      circle at 1px 1px,
+      rgba(255, 255, 255, 0.018) 1px,
+      transparent 0
+    );
+    background-size: 3px 3px;
+  }
+
+  /* Tabular numbers for financial data. Applied via .tabular utility. */
+  .tabular,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* Accent focus ring instead of default browser blue */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  /* Selection color */
+  ::selection {
+    background-color: var(--color-accent);
+    color: var(--color-ink);
+  }
+}
+
+/* ================================================================
+   Component utilities — reusable patterns that aren't variants
+   ================================================================ */
+@layer components {
+  /* Subtle top-edge highlight on cards — creates a paper feel on
+     dark surfaces without using drop shadows (which look muddy). */
+  .card-highlight {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+
+  /* Tracking for small uppercase labels */
+  .tracking-label {
+    letter-spacing: 0.06em;
+  }
+}

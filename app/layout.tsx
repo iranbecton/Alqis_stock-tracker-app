@@ -1,23 +1,10 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Inter } from "next/font/google";
 import "./globals.css";
-import { cn } from "@/lib/utils";
-
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
-
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
 
 export const metadata: Metadata = {
-  title: "Savvest",
-  description: "Track real-time stock prices, get personalized alerts and explore detailed company insights.",
+  title: "ALQIS",
+  description:
+    "ALQIS is a premium stock market intelligence app focused on AI-powered explanations, market context, and signal over noise.",
 };
 
 export default function RootLayout({
@@ -27,11 +14,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-    <body
-      className={cn("h-full", "antialiased", geistSans.variable, geistMono.variable, "font-sans", inter.variable)}
-    >
-    {children}
-    </body>
+      <body className="bg-bg text-ink font-sans antialiased h-full">
+        {children}
+      </body>
     </html>
   );
 }
