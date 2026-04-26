@@ -26,7 +26,7 @@ export function TickerSearch() {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
   const [providerStatus, setProviderStatus] =
-    useState<SearchResponse["providerStatus"]>("fallback");
+    useState<SearchResponse["providerStatus"] | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const normalizedQuery = query.trim().toUpperCase();
   const inputId = "ticker-search-input";
@@ -137,6 +137,10 @@ export function TickerSearch() {
           <p className="text-body-sm text-accent-ai">
             Showing curated ALQIS universe.
           </p>
+        ) : providerStatus === "ok" && normalizedQuery ? (
+          <p className="text-body-sm text-ink-subtle">
+            Showing live search results.
+          </p>
         ) : null}
       </form>
 
@@ -149,7 +153,7 @@ export function TickerSearch() {
             </p>
           </div>
         ) : results.length > 0 ? (
-          <ul className="grid gap-2">
+          <ul className="grid max-h-[28rem] gap-2 overflow-y-auto pr-1">
             {results.map((result) => (
               <li key={`${result.source}-${result.ticker}`}>
                 <button

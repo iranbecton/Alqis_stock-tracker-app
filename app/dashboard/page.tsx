@@ -111,7 +111,7 @@ export default async function DashboardPage() {
           <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.42fr)]">
             <div className="space-y-4">
               <div>
-                <p className="section-kicker">Tracked universe search</p>
+                <p className="section-kicker">Stock intelligence search</p>
                 <h2 className="mt-2 font-serif text-[2rem] leading-tight tracking-tight text-ink sm:text-[2.4rem]">
                   Search for a market read.
                 </h2>
