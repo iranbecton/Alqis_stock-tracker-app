@@ -6,6 +6,7 @@ import type {
   ConfidenceLabel,
   WhyMovingInputs,
 } from "@/lib/ai/types";
+import { evaluateStockDataHealth } from "@/lib/stocks/stock-data-health";
 
 function getBand(score: number): ConfidenceBand {
   if (score >= 0.85) return "A";
@@ -82,6 +83,23 @@ export function scoreConfidence(
   causes: CauseCandidate[]
 ): Confidence {
   const topCause = causes[0];
+  const dataHealth = evaluateStockDataHealth({
+    quote: inputs.quote,
+    profile: inputs.companyName
+      ? {
+          companyName: inputs.companyName,
+          sector: inputs.sector,
+        }
+      : null,
+    chartPoints: inputs.chartPoints,
+    news: inputs.newsItems,
+    chartRanges: {
+      [inputs.timeframe]: {
+        status: inputs.chartStatus,
+        fallback: inputs.chartFallback,
+      },
+    },
+  });
   const relevantNewsCount = inputs.newsItems.filter(
     (item) => !item.tags.includes("UNKNOWN")
   ).length;
@@ -179,6 +197,31 @@ export function scoreConfidence(
 
   if (!inputs.quote) {
     score = Math.min(score, 0.54);
+  }
+
+  if (dataHealth.quoteStatus === "missing" || dataHealth.quoteStatus === "error") {
+    score = Math.min(score, 0.39);
+  }
+
+  if (dataHealth.quoteStatus === "partial") {
+    score = Math.min(score, 0.62);
+  }
+
+  if (
+    dataHealth.chartStatus !== "ok" &&
+    (dataHealth.newsStatus === "missing" ||
+      dataHealth.newsStatus === "limited" ||
+      dataHealth.newsStatus === "error")
+  ) {
+    score = Math.min(score, dataHealth.quoteStatus === "ok" ? 0.54 : 0.39);
+  }
+
+  if (
+    dataHealth.quoteStatus === "ok" &&
+    dataHealth.chartStatus !== "ok" &&
+    dataHealth.newsStatus === "ok"
+  ) {
+    score = Math.min(score, 0.69);
   }
 
   if (contradictionCount > 0 && !hasStrongTickerCatalyst(topCause)) {

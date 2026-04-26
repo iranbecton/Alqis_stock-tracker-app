@@ -31,6 +31,7 @@ import type {
 } from "@/lib/ai/providers/types";
 import type { DemoStock } from "@/lib/stocks/demo-stocks";
 import { getDemoStockBySymbol } from "@/lib/stocks/demo-stocks";
+import type { StockDataHealth } from "@/lib/stocks/stock-data-health";
 import { StockChartCard } from "./stock-chart-card";
 import { StockHeroHeader } from "./stock-hero-header";
 import { StockWhyCard } from "./stock-why-card";
@@ -84,6 +85,7 @@ export type StockDetailMarketData = {
   providerMessage?: string;
   chartProviderAccessError?: boolean;
   chartProvider?: string;
+  dataHealth?: StockDataHealth;
 };
 
 type StockDetailPageProps = {
@@ -145,12 +147,16 @@ export function StockDetailPage({
               </p>
             </div>
 
+            {marketData?.dataHealth ? (
+              <DataHealthStrip health={marketData.dataHealth} />
+            ) : null}
+
             {shouldShowProviderNotice ? (
               <div className="flex gap-3 rounded-[var(--radius-lg)] border border-warn/18 bg-warn-bg/28 px-4 py-3 text-body-sm text-ink-muted">
                 <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
                 <p>
                   {marketData?.providerMessage ??
-                    "Finnhub data is unavailable right now, so ALQIS is showing the demo fallback without interrupting the screen."}
+                    "Market data is partially available. ALQIS is labeling missing provider context instead of filling the page with unsupported evidence."}
                 </p>
               </div>
             ) : null}
@@ -239,7 +245,9 @@ function createStockDetailData(
       afterHoursChangePct: dailyChangePercent * 0.08,
       oneLineSummary: hasStructuredExplanation
         ? `${profile?.companyName || stock.companyName} is showing live market data with a structured ALQIS explanation for ${stock.symbol}.`
-        : hasLiveChart
+        : marketData?.dataHealth
+          ? marketData.dataHealth.userFacingSummary
+          : hasLiveChart
           ? `${profile?.companyName || stock.companyName} is showing real Finnhub quote/news data and ${chartProviderName} chart data while the explanation fallback stays cautious.`
           : `${profile?.companyName || stock.companyName} is showing real quote/news data where available, with ticker-aware chart fallback until provider data is complete.`,
       quoteStats: createQuoteStats(quote),
@@ -336,6 +344,62 @@ function createStockDetailData(
     signals: createTickerSignals(stock, quote, marketData, explanationResponse),
     peers: createTickerPeers(stock),
   };
+}
+
+function DataHealthStrip({ health }: { health: StockDataHealth }) {
+  const isComplete = health.overallStatus === "complete";
+
+  return (
+    <section
+      aria-label="Market data health"
+      className="rounded-[var(--radius-lg)] border border-border/60 bg-[color-mix(in_srgb,var(--surface-elevated)_78%,var(--surface)_22%)] px-4 py-3"
+    >
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <AlertTriangle
+            className={`mt-0.5 h-4 w-4 shrink-0 ${isComplete ? "text-accent-secondary" : "text-warn"}`}
+          />
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-ink">{health.userFacingLabel}</p>
+            <p className="mt-1 text-body-sm text-ink-muted">
+              {health.userFacingSummary}
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          <HealthBadge label={formatHealthStatus("Quote", health.quoteStatus)} ok={health.quoteStatus === "ok"} />
+          <HealthBadge label={formatHealthStatus("Chart", health.chartStatus)} ok={health.chartStatus === "ok"} />
+          <HealthBadge label={formatHealthStatus("News", health.newsStatus)} ok={health.newsStatus === "ok"} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function HealthBadge({ label, ok }: { label: string; ok: boolean }) {
+  return (
+    <Badge
+      variant={ok ? "outline" : "ai"}
+      size="sm"
+      className="normal-case tracking-normal"
+    >
+      {label}
+    </Badge>
+  );
+}
+
+function formatHealthStatus(label: string, status: string) {
+  if (label === "Quote" && status === "ok") return "Live quote connected";
+  if (label === "Quote" && status === "missing") return "Quote unavailable";
+  if (label === "Chart" && status === "ok") return "Live chart connected";
+  if (label === "Chart" && status === "fallback") return "Fallback chart is not evidence";
+  if (label === "Chart") return "Chart provider unavailable";
+  if (label === "News" && status === "ok") return "News context connected";
+  if (label === "News" && status === "limited") return "News context limited";
+  if (label === "News") return "No recent news context found";
+
+  return `${label} ${status}`;
 }
 
 function createStructuredExplanation(
@@ -494,7 +558,7 @@ function createChartFallbackMessage(
     ? ` Provider status ${chartMeta.providerStatus}.`
     : "";
   const providerMessage = chartMeta?.providerMessage
-    ? ` ${trimProviderMessage(chartMeta.providerMessage)}`
+    ? " Provider returned no usable live chart points for this range."
     : "";
 
   return `Chart provider unavailable for this range. ALQIS is showing ticker-aware fallback structure for ${stock.symbol} ${range} and does not treat it as chart confirmation. Source: ${providerName}.${providerDetail}${providerMessage}`;
@@ -943,13 +1007,6 @@ function formatProviderName(provider?: string) {
   }
 
   return "chart provider";
-}
-
-function trimProviderMessage(message: string) {
-  const compactMessage = message.replace(/\s+/g, " ").trim();
-  return compactMessage.length > 160
-    ? `${compactMessage.slice(0, 157)}...`
-    : compactMessage;
 }
 
 function formatEvidenceType(type: WhyMovingResponse["keyFactors"][number]["evidenceType"]) {

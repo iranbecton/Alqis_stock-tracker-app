@@ -96,6 +96,10 @@ function hasLiveChartConfirmation(inputs: WhyMovingInputs) {
 }
 
 function buildSummary(inputs: WhyMovingInputs, causes: CauseCandidate[]) {
+  if (!inputs.quote) {
+    return `${inputs.ticker} has limited market data available, so ALQIS cannot identify a reliable price-move driver yet.`;
+  }
+
   const movePct = inputs.quote?.changePercent ?? 0;
   const direction = movePct >= 0 ? "higher" : "lower";
   const chartAvailable = hasLiveChartConfirmation(inputs);

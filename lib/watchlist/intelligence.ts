@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import type { AIWordingRouteResponse } from "@/lib/ai/providers/types";
 import type { WhyMovingResponse } from "@/lib/ai/types";
 import type { CompanyProfile, StockQuote } from "@/lib/market-data/types";
+import { evaluateStockDataHealth } from "@/lib/stocks/stock-data-health";
 import type {
   WatchlistApiItem,
   WatchlistDirection,
@@ -80,7 +81,24 @@ async function enrichWatchlistItem(
     explanationResult.status === "fulfilled"
       ? normalizeExplanation(explanationResult.value)
       : undefined;
-  const providerStatus = getProviderStatus(Boolean(quote), Boolean(explanation));
+  const dataHealth = evaluateStockDataHealth({
+    quote,
+    profile: quote?.companyProfile ?? null,
+    news:
+      explanation?.sourceCount && explanation.sourceCount > 0
+        ? [
+            {
+              id: `${item.ticker}-structured-context`,
+              headline: explanation.summary,
+              summary: explanation.summary,
+              source: "ALQIS structured read",
+              url: "",
+              publishedAt: explanation.generatedAt,
+            },
+          ]
+        : [],
+  });
+  const providerStatus = getProviderStatus(dataHealth.overallStatus);
   const intelligenceItem: WatchlistIntelligenceItem = {
     id: item.id,
     ticker: item.ticker,
@@ -94,9 +112,9 @@ async function enrichWatchlistItem(
     confidence: explanation?.confidence.label ?? null,
     readStatus: explanation
       ? "Structured read live"
-      : quote
-        ? "Quote live; read pending"
-        : "Market data unavailable",
+      : dataHealth.overallStatus === "partial"
+        ? "Partial market data"
+        : dataHealth.userFacingLabel,
     quickRead: createQuickRead(item.ticker, quote, explanation),
     providerStatus,
   };
@@ -194,14 +212,13 @@ function getDirection(value?: number): WatchlistDirection {
 }
 
 function getProviderStatus(
-  hasQuote: boolean,
-  hasExplanation: boolean
+  overallStatus: ReturnType<typeof evaluateStockDataHealth>["overallStatus"]
 ): WatchlistIntelligenceItem["providerStatus"] {
-  if (hasQuote && hasExplanation) {
+  if (overallStatus === "complete") {
     return "ok";
   }
 
-  if (hasQuote || hasExplanation) {
+  if (overallStatus === "partial" || overallStatus === "limited") {
     return "partial";
   }
 

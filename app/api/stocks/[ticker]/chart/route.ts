@@ -83,9 +83,6 @@ export async function GET(request: Request, context: RouteContext) {
       providerMessage: result.providerMessage,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unable to fetch chart data.";
-
     if (process.env.NODE_ENV === "development") {
       console.error("[ALQIS chart route] Unexpected chart provider failure", {
         provider: "twelve-data",
@@ -97,7 +94,7 @@ export async function GET(request: Request, context: RouteContext) {
 
     return NextResponse.json(
       {
-        error: message,
+        error: "Chart provider unavailable.",
         provider: "twelve-data",
         fallback: "demo-chart-structure",
         symbol,

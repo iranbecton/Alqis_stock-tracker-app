@@ -33,12 +33,19 @@ export async function GET(_request: Request, context: RouteContext) {
       companyProfile: profile,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unable to fetch quote data.";
+    if (process.env.NODE_ENV === "development") {
+      console.error("[ALQIS quote] Provider request failed", {
+        provider: "finnhub",
+        ticker: symbol,
+        failedEndpoint: "/api/stocks/[ticker]/quote",
+        reason: error instanceof Error ? error.message : "Unknown quote error",
+        fallbackUsed: false,
+      });
+    }
 
     return NextResponse.json(
       {
-        error: message,
+        error: "Quote provider unavailable.",
         symbol,
       },
       { status: 502 }

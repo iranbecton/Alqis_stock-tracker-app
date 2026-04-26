@@ -27,6 +27,7 @@ import type {
 import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { evaluateStockDataHealth } from "@/lib/stocks/stock-data-health";
 import {
   type DemoStock,
   demoStocks,
@@ -158,39 +159,80 @@ async function getStockMarketData(symbol: string): Promise<StockDetailMarketData
       ? "empty"
       : "live";
 
+  const chartRanges = {
+    "1D": {
+      provider: chart1D.data?.provider,
+      status: chart1D.data?.status,
+      fallback: chart1D.data?.fallback,
+      providerStatus: chart1D.data?.providerStatus,
+      providerMessage: chart1D.data?.providerMessage ?? chart1D.error,
+    },
+    "5D": {
+      provider: chart5D.data?.provider,
+      status: chart5D.data?.status,
+      fallback: chart5D.data?.fallback,
+      providerStatus: chart5D.data?.providerStatus,
+      providerMessage: chart5D.data?.providerMessage ?? chart5D.error,
+    },
+    "1M": {
+      provider: chart1M.data?.provider,
+      status: chart1M.data?.status,
+      fallback: chart1M.data?.fallback,
+      providerStatus: chart1M.data?.providerStatus,
+      providerMessage: chart1M.data?.providerMessage ?? chart1M.error,
+    },
+  };
+  const dataHealth = evaluateStockDataHealth({
+    quote: quoteResult.data,
+    profile: quoteResult.data?.companyProfile ?? null,
+    chartRanges,
+    news: newsResult.data?.items ?? [],
+    quoteError: quoteResult.error,
+    newsError: newsResult.error,
+    chartError: [chart1D.error, chart5D.error, chart1M.error].find(Boolean),
+  });
+
+  if (process.env.NODE_ENV === "development" && dataHealth.overallStatus !== "complete") {
+    console.error("[ALQIS stock-page] Provider health degraded", {
+      ticker: symbol,
+      provider: "internal stock APIs",
+      failedEndpoint: getFailedEndpoint({
+        quoteError: quoteResult.error,
+        chartErrors: [chart1D.error, chart5D.error, chart1M.error],
+        newsError: newsResult.error,
+      }),
+      reason: dataHealth.missingFields.join(", ") || dataHealth.userFacingLabel,
+      fallbackUsed: dataHealth.chartStatus === "fallback",
+    });
+  }
+
   return {
     quote: quoteResult.data,
     profile: quoteResult.data?.companyProfile ?? null,
     charts,
-    chartRanges: {
-      "1D": {
-        provider: chart1D.data?.provider,
-        status: chart1D.data?.status,
-        fallback: chart1D.data?.fallback,
-        providerStatus: chart1D.data?.providerStatus,
-        providerMessage: chart1D.data?.providerMessage ?? chart1D.error,
-      },
-      "5D": {
-        provider: chart5D.data?.provider,
-        status: chart5D.data?.status,
-        fallback: chart5D.data?.fallback,
-        providerStatus: chart5D.data?.providerStatus,
-        providerMessage: chart5D.data?.providerMessage ?? chart5D.error,
-      },
-      "1M": {
-        provider: chart1M.data?.provider,
-        status: chart1M.data?.status,
-        fallback: chart1M.data?.fallback,
-        providerStatus: chart1M.data?.providerStatus,
-        providerMessage: chart1M.data?.providerMessage ?? chart1M.error,
-      },
-    },
+    chartRanges,
     news: newsResult.data?.items ?? [],
     providerState,
-    providerMessage: getProviderMessage(providerState, globalErrors),
+    providerMessage: getProviderMessage(providerState),
     chartProviderAccessError: chartAccessError,
     chartProvider,
+    dataHealth,
   };
+}
+
+function getFailedEndpoint({
+  quoteError,
+  chartErrors,
+  newsError,
+}: {
+  quoteError?: string;
+  chartErrors: Array<string | undefined>;
+  newsError?: string;
+}) {
+  if (quoteError) return "/api/stocks/[ticker]/quote";
+  if (chartErrors.some(Boolean)) return "/api/stocks/[ticker]/chart";
+  if (newsError) return "/api/stocks/[ticker]/news";
+  return "health-check";
 }
 
 async function fetchInternalApi<T>(pathname: string): Promise<ApiResult<T>> {
@@ -325,23 +367,16 @@ async function getWatchlistStatus(
   return Boolean(data);
 }
 
-function getProviderMessage(
-  providerState: StockDetailMarketData["providerState"],
-  errors: Array<string | undefined>
-) {
+function getProviderMessage(providerState: StockDetailMarketData["providerState"]) {
   if (providerState === "live") {
     return undefined;
   }
 
   if (providerState === "fallback") {
-    return errors[0]
-      ? `Market data partially available. ${errors[0]}`
-      : "Market data partially available. Some provider inputs are unavailable.";
+    return "Market data partially available. Some provider inputs are unavailable.";
   }
 
-  return errors[0]
-    ? `Market data partially available. ${errors[0]}`
-    : "Market data partially available.";
+  return "Market data partially available.";
 }
 
 function createStockFromLiveData(
