@@ -1,11 +1,15 @@
 "use client";
 
+import { useState } from "react";
 import { BarChart3, BrainCircuit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ChartFrame } from "@/components/ui/chart-frame";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { stockDetailDemoData, type StockChartRange } from "@/lib/stock-detail-demo-data";
-import { PriceLineChart } from "@/components/alqis/price-line-chart";
+import {
+  PriceLineChart,
+  type ChartMarkerInsight,
+} from "@/components/alqis/price-line-chart";
 
 const ranges: StockChartRange[] = ["1d", "5d", "1m"];
 
@@ -14,6 +18,10 @@ type StockChartCardProps = {
 };
 
 export function StockChartCard({ data = stockDetailDemoData }: StockChartCardProps) {
+  const [activeRange, setActiveRange] = useState<StockChartRange>("1d");
+  const [selectedInsights, setSelectedInsights] = useState<
+    Partial<Record<StockChartRange, ChartMarkerInsight | null>>
+  >({});
   const providerLabel =
     ranges
       .map((range) =>
@@ -31,7 +39,11 @@ export function StockChartCard({ data = stockDetailDemoData }: StockChartCardPro
     "15 min delay";
 
   return (
-    <Tabs defaultValue="1d" className="w-full">
+    <Tabs
+      value={activeRange}
+      onValueChange={(value) => setActiveRange(value as StockChartRange)}
+      className="w-full"
+    >
       <ChartFrame
         className="border-accent-secondary/10"
         title="Proof of move"
@@ -80,7 +92,79 @@ export function StockChartCard({ data = stockDetailDemoData }: StockChartCardPro
                 </div>
               </div>
 
-              <PriceLineChart data={chart.points} markers={chart.markers} />
+              <PriceLineChart
+                data={chart.points}
+                markers={isFallback ? [] : chart.markers}
+                markersDisabled={isFallback}
+                onSelectedInsightChange={(insight) =>
+                  setSelectedInsights((current) => {
+                    const previous = current[range] ?? null;
+                    const unchanged =
+                      previous?.title === insight?.title &&
+                      previous?.timestamp === insight?.timestamp &&
+                      previous?.price === insight?.price &&
+                      previous?.stance === insight?.stance;
+
+                    if (unchanged) {
+                      return current;
+                    }
+
+                    return {
+                      ...current,
+                      [range]: insight,
+                    };
+                  })
+                }
+              />
+
+              <div className="rounded-[var(--radius-lg)] border border-accent-ai/10 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-ai)_5%)] px-4 py-3.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <p className="section-kicker text-accent-ai">
+                    Proof-of-move read
+                  </p>
+                  <Badge
+                    variant={isFallback ? "outline" : "ai"}
+                    size="sm"
+                    className="normal-case tracking-normal"
+                  >
+                    {isFallback ? "Illustrative only" : "Interactive markers"}
+                  </Badge>
+                </div>
+                {isFallback ? (
+                  <p className="mt-2 text-body-sm leading-6 text-ink-muted">
+                    Demo chart structure - not live proof. Demo markers are
+                    illustrative only and are not used as evidence.
+                  </p>
+                ) : selectedInsights[range] ? (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge variant="outline" size="sm" className="normal-case tracking-normal">
+                        {selectedInsights[range]?.stance}
+                      </Badge>
+                      <span className="text-body-sm text-ink-subtle">
+                        {selectedInsights[range]?.markerType}
+                      </span>
+                    </div>
+                    <p className="text-sm font-medium text-ink">
+                      {selectedInsights[range]?.title}
+                    </p>
+                    <p className="text-body-sm leading-6 text-ink-muted">
+                      {selectedInsights[range]?.explanation}
+                    </p>
+                    <p className="text-[0.78rem] leading-5 text-ink-subtle">
+                      {selectedInsights[range]?.timestamp} -{" "}
+                      {selectedInsights[range]?.price} -{" "}
+                      {selectedInsights[range]?.changePct}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-body-sm leading-6 text-ink-muted">
+                    Markers show where price action confirms, challenges, or
+                    contextualizes the current ALQIS read. Select one to inspect
+                    the evidence anchor.
+                  </p>
+                )}
+              </div>
 
               <div className="grid gap-2.5 sm:grid-cols-3">
                 {chart.stats.map((stat) => (

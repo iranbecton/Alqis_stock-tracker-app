@@ -20,6 +20,8 @@ type StockWhyCardProps = {
 
 export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) {
   const { explanation, asOf } = data;
+  const visibleCounterEvidence = explanation.counterEvidence.slice(0, 2);
+  const hiddenCounterEvidence = explanation.counterEvidence.slice(2);
 
   return (
     <Card
@@ -136,12 +138,14 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
 
         <section className="space-y-3 rounded-[var(--radius-lg)] border border-border/60 bg-[color-mix(in_srgb,var(--surface-elevated)_80%,var(--background)_20%)] p-4">
           <div>
-            <p className="section-kicker">Counterevidence</p>
-            <p className="mt-1 text-sm font-medium text-ink">What could weaken the thesis.</p>
+            <p className="section-kicker">Could weaken the read</p>
+            <p className="mt-1 text-sm font-medium text-ink">
+              Evidence that may limit confidence in the current explanation.
+            </p>
           </div>
 
           <div className="space-y-3">
-            {explanation.counterEvidence.map((item) => (
+            {visibleCounterEvidence.map((item) => (
               <div
                 key={item.label}
                 className="rounded-[var(--radius-md)] border border-border/60 bg-surface/40 px-4 py-3"
@@ -150,6 +154,31 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
                 <p className="mt-1.5 text-[0.84rem] leading-5 text-ink-muted">{item.detail}</p>
               </div>
             ))}
+            {hiddenCounterEvidence.length ? (
+              <details className="group rounded-[var(--radius-md)] border border-border/50 bg-surface/30">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-ink">
+                  <span>View all counterevidence</span>
+                  <span className="rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.16em] text-ink-subtle">
+                    +{hiddenCounterEvidence.length}
+                  </span>
+                </summary>
+                <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-open:grid-rows-[1fr]">
+                  <div className="space-y-3 overflow-hidden border-t border-border/50 p-3">
+                    {hiddenCounterEvidence.map((item) => (
+                      <div
+                        key={item.label}
+                        className="rounded-[var(--radius-md)] border border-border/60 bg-surface/40 px-4 py-3"
+                      >
+                        <p className="text-sm font-medium text-ink">{item.label}</p>
+                        <p className="mt-1.5 text-[0.84rem] leading-5 text-ink-muted">
+                          {item.detail}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </details>
+            ) : null}
           </div>
         </section>
 
@@ -157,7 +186,9 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-left">
             <div className="space-y-1.5">
               <p className="section-kicker">What would change this read</p>
-              <p className="text-sm font-medium text-ink">The few conditions that would force a downgrade.</p>
+              <p className="text-sm font-medium text-ink">
+                Conditions that would change the current ALQIS read.
+              </p>
             </div>
             <div className="flex items-center gap-3">
               <span className="rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-[0.7rem] uppercase tracking-[0.16em] text-ink-subtle">
@@ -167,56 +198,60 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
             </div>
           </summary>
 
-          <div className="space-y-4 border-t border-border/60 px-4 py-4">
-            <div className="space-y-3">
-              <p className="section-kicker">Shift triggers</p>
-              <ul className="space-y-2.5">
-                {explanation.changeTriggers.map((trigger, index) => (
-                  <li
-                    key={trigger}
-                    className="flex gap-3 rounded-[var(--radius-md)] border border-accent-ai/10 bg-[color-mix(in_srgb,var(--surface)_72%,var(--accent-ai)_8%)] px-4 py-3 text-body-sm text-ink-muted"
-                  >
-                    <span className="mt-0.5 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-accent-ai">
-                      0{index + 1}
-                    </span>
-                    <span>{trigger}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+          <div className="grid grid-rows-[0fr] transition-[grid-template-rows] duration-200 group-open:grid-rows-[1fr]">
+            <div className="overflow-hidden">
+              <div className="space-y-4 border-t border-border/60 px-4 py-4">
+                <div className="space-y-3">
+                  <p className="section-kicker">Shift triggers</p>
+                  <ul className="space-y-2.5">
+                    {explanation.changeTriggers.map((trigger, index) => (
+                      <li
+                        key={trigger}
+                        className="flex gap-3 rounded-[var(--radius-md)] border border-accent-ai/10 bg-[color-mix(in_srgb,var(--surface)_72%,var(--accent-ai)_8%)] px-4 py-3 text-body-sm text-ink-muted"
+                      >
+                        <span className="mt-0.5 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-accent-ai">
+                          0{index + 1}
+                        </span>
+                        <span>{trigger}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-            <div className="space-y-3 border-t border-border/50 pt-4">
-              <p className="section-kicker">Why this is trustworthy</p>
-              <div className="flex flex-wrap gap-2">
-                {explanation.sourceLabels.map((label) => (
-                  <Badge key={label} variant="outline" size="sm" className="normal-case tracking-normal">
-                    {label}
-                  </Badge>
-                ))}
+                <div className="space-y-3 border-t border-border/50 pt-4">
+                  <p className="section-kicker">Why this is trustworthy</p>
+                  <div className="flex flex-wrap gap-2">
+                    {explanation.sourceLabels.map((label) => (
+                      <Badge key={label} variant="outline" size="sm" className="normal-case tracking-normal">
+                        {label}
+                      </Badge>
+                    ))}
+                  </div>
+                  <p className="text-[0.84rem] leading-5 text-ink-muted">{explanation.trustNote}</p>
+                </div>
+
+                <div className="space-y-3 border-t border-border/50 pt-4">
+                  <p className="section-kicker">Evidence notes</p>
+                  <ol className="space-y-3">
+                    {explanation.evidence.map((item) => (
+                      <li
+                        key={`${item.time}-${item.title}`}
+                        className="rounded-[var(--radius-md)] border border-border/70 bg-surface-elevated/72 px-4 py-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <p className="text-sm font-medium text-ink">{item.title}</p>
+                            <p className="mt-2 text-[0.84rem] leading-5 text-ink-muted">{item.detail}</p>
+                          </div>
+                          <span className="shrink-0 text-xs uppercase tracking-label text-ink-subtle">
+                            {item.time}
+                          </span>
+                        </div>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
               </div>
-              <p className="text-[0.84rem] leading-5 text-ink-muted">{explanation.trustNote}</p>
-            </div>
-
-            <div className="space-y-3 border-t border-border/50 pt-4">
-              <p className="section-kicker">Evidence notes</p>
-              <ol className="space-y-3">
-                {explanation.evidence.map((item) => (
-                  <li
-                    key={`${item.time}-${item.title}`}
-                    className="rounded-[var(--radius-md)] border border-border/70 bg-surface-elevated/72 px-4 py-4"
-                  >
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <p className="text-sm font-medium text-ink">{item.title}</p>
-                        <p className="mt-2 text-[0.84rem] leading-5 text-ink-muted">{item.detail}</p>
-                      </div>
-                      <span className="shrink-0 text-xs uppercase tracking-label text-ink-subtle">
-                        {item.time}
-                      </span>
-                    </div>
-                  </li>
-                ))}
-              </ol>
             </div>
           </div>
         </details>

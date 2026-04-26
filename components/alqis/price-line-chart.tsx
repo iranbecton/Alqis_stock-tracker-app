@@ -21,6 +21,16 @@ type PriceLineChartMarker = {
   whyItMatters?: string;
 };
 
+export type ChartMarkerInsight = {
+  title: string;
+  markerType: string;
+  stance: "Supports the read" | "Weakens the read" | "Context only";
+  timestamp: string;
+  price: string;
+  changePct: string;
+  explanation: string;
+};
+
 type InteractiveMarkerKind = "checkpoint" | "event" | "current" | "data";
 
 type InteractiveMarker = Required<Pick<PriceLineChartMarker, "index" | "label">> &
@@ -195,6 +205,59 @@ function formatPercent(value: number) {
   return `${prefix}${value.toFixed(2)}%`;
 }
 
+function getMarkerTypeLabel(marker: InteractiveMarker) {
+  if (marker.kind === "current") return "Price confirmation";
+  if (marker.kind === "event") return "News context";
+  if (marker.kind === "data") return "Data checkpoint";
+  if (marker.changePct < -0.25) return "Challenge point";
+  return Math.abs(marker.changePct) >= 0.75
+    ? "Price confirmation"
+    : "Data checkpoint";
+}
+
+function getMarkerStance(marker: InteractiveMarker): ChartMarkerInsight["stance"] {
+  if (marker.kind === "data") return "Context only";
+  if (marker.changePct < -0.25) return "Weakens the read";
+  if (marker.changePct > 0.25) return "Supports the read";
+  return "Context only";
+}
+
+function getMarkerExplanation(marker: InteractiveMarker) {
+  if (marker.explanation) {
+    return marker.explanation.match(/^[^.!?]+[.!?]?/)?.[0] ?? marker.explanation;
+  }
+
+  if (marker.kind === "current") {
+    return "The latest plotted point shows where the selected chart window currently resolves.";
+  }
+
+  if (marker.kind === "data") {
+    return "This checkpoint provides price context for the selected chart window.";
+  }
+
+  if (marker.changePct < -0.25) {
+    return `${marker.label} shows price action challenging the current read.`;
+  }
+
+  if (marker.changePct > 0.25) {
+    return `${marker.label} shows price action supporting the current read.`;
+  }
+
+  return `${marker.label} adds context without clearly confirming or weakening the read.`;
+}
+
+function createMarkerInsight(marker: InteractiveMarker): ChartMarkerInsight {
+  return {
+    title: marker.title ?? marker.label,
+    markerType: getMarkerTypeLabel(marker),
+    stance: getMarkerStance(marker),
+    timestamp: marker.time,
+    price: currencyFormatter.format(marker.value),
+    changePct: formatPercent(marker.changePct),
+    explanation: getMarkerExplanation(marker),
+  };
+}
+
 function getMarkerPlacement(point: Coordinates, width: number, height: number) {
   const horizontal =
     point.x < width * 0.22 ? "start" : point.x > width * 0.74 ? "end" : "center";
@@ -334,15 +397,7 @@ function MarkerTooltip({
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-[0.62rem] uppercase tracking-[0.18em] text-ink-subtle">
-          {group.members.length > 1
-            ? "Grouped signal"
-            : marker.kind === "current"
-              ? "Current"
-              : marker.kind === "data"
-                ? "Price point"
-              : marker.kind === "event"
-                ? "Event"
-                : "Checkpoint"}
+          {group.members.length > 1 ? "Grouped signal" : getMarkerTypeLabel(marker)}
         </p>
         <p
           className={cn(
@@ -362,6 +417,9 @@ function MarkerTooltip({
           {marker.label}
         </p>
       ) : null}
+      <p className="mt-2 text-[0.76rem] leading-5 text-ink-muted">
+        {getMarkerExplanation(marker)}
+      </p>
       {group.members.length > 1 ? (
         <div className="mt-3 space-y-2 border-t border-white/10 pt-2.5">
           {group.members.map((member) => (
@@ -383,7 +441,7 @@ function MarkerTooltip({
                 </p>
               </div>
               <p className="mt-1 text-[0.7rem] leading-4 text-ink-subtle">
-                {currencyFormatter.format(member.value)} · {member.time}
+                {currencyFormatter.format(member.value)} - {member.time}
               </p>
             </div>
           ))}
@@ -397,10 +455,14 @@ export function PriceLineChart({
   data,
   markers = [],
   className,
+  markersDisabled = false,
+  onSelectedInsightChange,
 }: {
   data: PriceLineChartPoint[];
   markers?: PriceLineChartMarker[];
   className?: string;
+  markersDisabled?: boolean;
+  onSelectedInsightChange?: (insight: ChartMarkerInsight | null) => void;
 }) {
   const width = 720;
   const height = 320;
@@ -447,7 +509,9 @@ export function PriceLineChart({
   const lowLabelX = CHART_LAYOUT.annotation.lowLabelX;
   const lowLabelY = height - CHART_LAYOUT.annotation.lowLabelBottomInset;
   const interactiveMarkers = useMemo(() => {
-    const visibleMarkers = markers.filter((marker) => marker.index < finalPointIndex);
+    const visibleMarkers = markersDisabled
+      ? []
+      : markers.filter((marker) => marker.index < finalPointIndex);
     const mappedMarkers = visibleMarkers
       .map<InteractiveMarker | null>((marker) => {
           const point = points[marker.index];
@@ -475,7 +539,7 @@ export function PriceLineChart({
     const finalValue = data[finalPointIndex]?.value;
     const baseValue = data[0]?.value ?? finalValue ?? 0;
 
-    if (finalPoint && finalValue !== undefined) {
+    if (!markersDisabled && finalPoint && finalValue !== undefined) {
       mappedMarkers.push({
         index: finalPointIndex,
         label: "Current price",
@@ -490,7 +554,7 @@ export function PriceLineChart({
     }
 
     return mappedMarkers;
-  }, [data, finalPoint, finalPointIndex, markers, points]);
+  }, [data, finalPoint, finalPointIndex, markers, markersDisabled, points]);
   const markerGroups = useMemo(
     () =>
       resolveMarkerGroups({
@@ -511,8 +575,6 @@ export function PriceLineChart({
     markerGroups.find((group) =>
       group.members.some((marker) => marker.key === selectedMarkerKey)
     ) ?? null;
-  const selectedEventMarker =
-    selectedGroup?.members.find((marker) => marker.kind === "event") ?? null;
   const createDataPointMarker = (index: number): InteractiveMarker | null => {
     const point = points[index];
     const value = data[index]?.value;
@@ -551,9 +613,17 @@ export function PriceLineChart({
         members: [selectedDataMarker],
       }
     : null;
-  const activeDataMarker = hoveredDataMarker ?? selectedDataMarker;
-  const activeTooltipGroup =
-    hoveredGroup ?? selectedGroup ?? hoveredDataGroup ?? selectedDataGroup;
+  const activeDataMarker = markersDisabled
+    ? null
+    : hoveredDataMarker ?? selectedDataMarker;
+  const activeTooltipGroup = markersDisabled
+    ? null
+    : hoveredGroup ?? selectedGroup ?? hoveredDataGroup ?? selectedDataGroup;
+  const selectedInsight = selectedGroup
+    ? createMarkerInsight(selectedGroup.primary)
+    : selectedDataMarker
+      ? createMarkerInsight(selectedDataMarker)
+      : null;
   const axisLabels = data.filter((_, index) => {
     if (data.length <= 4) return true;
     if (index === 0 || index === data.length - 1) return true;
@@ -643,11 +713,15 @@ export function PriceLineChart({
     return () => window.removeEventListener("pointerdown", handlePointerDown);
   }, []);
 
+  useEffect(() => {
+    onSelectedInsightChange?.(markersDisabled ? null : selectedInsight);
+  }, [markersDisabled, onSelectedInsightChange, selectedInsight]);
+
   return (
     <div
       ref={chartRef}
       className={cn(
-        "relative overflow-hidden rounded-[1.75rem] border border-border/80 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_94%,#18222f_6%)_0%,color-mix(in_srgb,var(--surface)_96%,#0a1018_4%)_100%)] p-4 sm:p-6",
+        "relative overflow-visible rounded-[1.75rem] border border-border/80 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_94%,#18222f_6%)_0%,color-mix(in_srgb,var(--surface)_96%,#0a1018_4%)_100%)] p-4 sm:p-6",
         className
       )}
     >
@@ -935,18 +1009,29 @@ export function PriceLineChart({
         </svg>
 
         <div
-          className="absolute inset-0 z-10"
+          className={cn(
+            "absolute inset-0 z-10",
+            markersDisabled && "pointer-events-none"
+          )}
           onPointerMove={(event) => {
+            if (markersDisabled) {
+              return;
+            }
             const nearestIndex = getNearestDataPointIndex(event);
             setHoveredDataPointIndex(nearestIndex);
           }}
           onPointerLeave={() => setHoveredDataPointIndex(null)}
           onClick={(event) => {
+            if (markersDisabled) {
+              return;
+            }
             const nearestIndex = getNearestDataPointIndex(event);
 
             if (nearestIndex !== null) {
               setSelectedMarkerKey(null);
-              setSelectedDataPointIndex(nearestIndex);
+              setSelectedDataPointIndex((current) =>
+                current === nearestIndex ? null : nearestIndex
+              );
             }
           }}
         >
@@ -982,13 +1067,17 @@ export function PriceLineChart({
               onClick={(event) => {
                 event.stopPropagation();
                 setSelectedDataPointIndex(null);
-                setSelectedMarkerKey(marker.key);
+                setSelectedMarkerKey((current) =>
+                  current === marker.key ? null : marker.key
+                );
               }}
               onKeyDown={(event) => {
                 if (event.key === "Enter" || event.key === " ") {
                   event.preventDefault();
                   setSelectedDataPointIndex(null);
-                  setSelectedMarkerKey(marker.key);
+                  setSelectedMarkerKey((current) =>
+                    current === marker.key ? null : marker.key
+                  );
                 }
               }}
             >
@@ -1008,48 +1097,6 @@ export function PriceLineChart({
           ) : null}
         </div>
       </div>
-
-      {selectedEventMarker ? (
-        <div className="mt-4 rounded-[1.2rem] border border-white/10 bg-white/[0.03] px-4 py-4 shadow-[0_14px_34px_rgba(0,0,0,0.16)] transition-all duration-200">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <p className="text-[0.64rem] uppercase tracking-[0.18em] text-ink-subtle">
-                {selectedGroup && selectedGroup.members.length > 1
-                  ? "Selected grouped catalyst"
-                  : "Selected catalyst"}
-              </p>
-              <h4 className="mt-2 text-base font-medium leading-6 text-ink">
-                {selectedEventMarker.title ?? selectedEventMarker.label}
-              </h4>
-            </div>
-            <div className="shrink-0 text-left sm:text-right">
-              <p className="text-[0.76rem] text-ink-subtle">{selectedEventMarker.time}</p>
-              <p className="mt-1 text-sm font-medium text-ink">
-                {currencyFormatter.format(selectedEventMarker.value)}
-                <span
-                  className={cn(
-                    "ml-2 text-[0.8rem]",
-                    selectedEventMarker.changePct >= 0 ? "text-gain" : "text-loss"
-                  )}
-                >
-                  {formatPercent(selectedEventMarker.changePct)}
-                </span>
-              </p>
-            </div>
-          </div>
-          {selectedEventMarker.explanation ? (
-            <p className="mt-3 text-body text-ink-muted">
-              {selectedEventMarker.explanation}
-            </p>
-          ) : null}
-          {selectedEventMarker.whyItMatters ? (
-            <p className="mt-3 text-[0.92rem] leading-6 text-ink-subtle">
-              <span className="font-medium text-ink">Why it matters:</span>{" "}
-              {selectedEventMarker.whyItMatters}
-            </p>
-          ) : null}
-        </div>
-      ) : null}
     </div>
   );
 }

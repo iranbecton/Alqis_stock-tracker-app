@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -17,7 +17,20 @@ export function WatchlistToggle({
 }: WatchlistToggleProps) {
   const [isSaved, setIsSaved] = useState(initialSaved);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [pendingAction, setPendingAction] = useState<"save" | "remove" | null>(
+    null
+  );
+  const feedbackTimeoutRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimeoutRef.current) {
+        window.clearTimeout(feedbackTimeoutRef.current);
+      }
+    };
+  }, []);
 
   async function updateWatchlist(nextSaved: boolean) {
     if (isPending) {
@@ -27,7 +40,9 @@ export function WatchlistToggle({
     const previousSaved = isSaved;
     setIsSaved(nextSaved);
     setError(null);
+    setFeedback(null);
     setIsPending(true);
+    setPendingAction(nextSaved ? "save" : "remove");
 
     try {
       const response = await fetch("/api/watchlist", {
@@ -45,6 +60,16 @@ export function WatchlistToggle({
       if (!response.ok) {
         throw new Error(json.error ?? "Unable to update watchlist.");
       }
+
+      setFeedback(
+        nextSaved ? "Saved to watchlist." : "Removed from watchlist."
+      );
+      if (feedbackTimeoutRef.current) {
+        window.clearTimeout(feedbackTimeoutRef.current);
+      }
+      feedbackTimeoutRef.current = window.setTimeout(() => {
+        setFeedback(null);
+      }, 2400);
     } catch (requestError) {
       setIsSaved(previousSaved);
       setError(
@@ -54,6 +79,7 @@ export function WatchlistToggle({
       );
     } finally {
       setIsPending(false);
+      setPendingAction(null);
     }
   }
 
@@ -62,13 +88,18 @@ export function WatchlistToggle({
       <div className="flex flex-wrap gap-3 xl:justify-end">
         <Button
           type="button"
-          variant={isSaved ? "secondary" : "primary"}
+          variant={isSaved || pendingAction === "remove" ? "secondary" : "primary"}
           size="md"
           disabled={isPending}
           onClick={() => void updateWatchlist(!isSaved)}
           aria-pressed={isSaved}
         >
-          {isSaved ? (
+          {pendingAction === "remove" ? (
+            <>
+              <X className="h-4 w-4" />
+              Removing...
+            </>
+          ) : isSaved ? (
             <>
               <Check className="h-4 w-4 text-gain" />
               Saved
@@ -76,7 +107,7 @@ export function WatchlistToggle({
           ) : (
             <>
               <Star className="h-4 w-4" />
-              Save to Watchlist
+              {pendingAction === "save" ? "Saving..." : "Save to Watchlist"}
             </>
           )}
         </Button>
@@ -95,11 +126,17 @@ export function WatchlistToggle({
         ) : null}
       </div>
 
-      {error ? (
-        <p className="max-w-[23rem] text-right text-body-sm text-loss">
-          {error}
-        </p>
-      ) : null}
+      <div aria-live="polite" className="min-h-5">
+        {error ? (
+          <p className="max-w-[23rem] text-right text-body-sm text-loss">
+            {error}
+          </p>
+        ) : feedback ? (
+          <p className="max-w-[23rem] text-right text-body-sm text-ink-subtle">
+            {feedback}
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
