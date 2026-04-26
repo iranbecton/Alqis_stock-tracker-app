@@ -32,6 +32,7 @@ import {
   demoStocks,
   getDemoStockBySymbol,
 } from "@/lib/stocks/demo-stocks";
+import { getStockUniverseItem } from "@/lib/stocks/stock-universe";
 
 type StockPageProps = {
   params: Promise<{
@@ -70,7 +71,10 @@ export default async function StockPage({ params }: StockPageProps) {
     getWatchlistStatus(supabase, user.id, symbol),
   ]);
   const demoStock = getDemoStockBySymbol(symbol);
-  const stock = demoStock ?? createStockFromLiveData(symbol, marketData);
+  const stock =
+    demoStock ??
+    createStockFromLiveData(symbol, marketData) ??
+    createStockFromUniverse(symbol, marketData);
 
   if (!stock) {
     return <TickerNotFound ticker={ticker} />;
@@ -331,13 +335,13 @@ function getProviderMessage(
 
   if (providerState === "fallback") {
     return errors[0]
-      ? `Finnhub data is unavailable: ${errors[0]} ALQIS is showing demo fallback data.`
-      : "Finnhub data is unavailable, so ALQIS is showing demo fallback data.";
+      ? `Market data partially available. ${errors[0]}`
+      : "Market data partially available. Some provider inputs are unavailable.";
   }
 
   return errors[0]
-    ? `Some Finnhub data could not be loaded: ${errors[0]}`
-    : "Some Finnhub data could not be loaded.";
+    ? `Market data partially available. ${errors[0]}`
+    : "Market data partially available.";
 }
 
 function createStockFromLiveData(
@@ -378,6 +382,54 @@ function createStockFromLiveData(
       "Live quote data is available, but Finnhub did not return recent company news.",
     explanation:
       "ALQIS is showing live quote and chart data while the AI explanation endpoint remains intentionally deferred.",
+  };
+}
+
+function createStockFromUniverse(
+  symbol: string,
+  marketData: StockDetailMarketData
+): DemoStock | undefined {
+  const universeItem = getStockUniverseItem(symbol);
+
+  if (!universeItem) {
+    return undefined;
+  }
+
+  const quote = marketData.quote;
+  const price = quote?.price ?? 0;
+  const dailyChange = quote?.change ?? 0;
+  const dailyChangePercent = quote?.changePercent ?? 0;
+
+  return {
+    symbol,
+    companyName: marketData.profile?.companyName || universeItem.companyName,
+    sector: marketData.profile?.sector || universeItem.sector,
+    price,
+    dailyChange,
+    dailyChangePercent,
+    marketStatus: quote?.marketStatus
+      ? `Market ${quote.marketStatus}`
+      : "Market data partially available",
+    statusDetail: quote ? "Finnhub quote data" : "Quote provider unavailable",
+    chartData:
+      marketData.charts?.["1D"]?.length
+        ? marketData.charts["1D"].map((point) => ({
+            label: new Intl.DateTimeFormat("en-US", {
+              hour: "numeric",
+              minute: "2-digit",
+            }).format(new Date(point.time)),
+            value: point.close,
+          }))
+        : [
+            { label: "Provider pending", value: price || 100 },
+            { label: "Latest", value: price || 100 },
+          ],
+    headline: quote
+      ? `${symbol} is showing available market data`
+      : `${symbol} market data is partially available`,
+    news: marketData.news?.[0]?.headline || "News context limited.",
+    explanation:
+      "ALQIS is showing available provider data and clear fallback labels where market inputs are incomplete.",
   };
 }
 

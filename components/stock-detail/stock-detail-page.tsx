@@ -243,11 +243,11 @@ function createStockDetailData(
           ? `${profile?.companyName || stock.companyName} is showing real Finnhub quote/news data and ${chartProviderName} chart data while the explanation fallback stays cautious.`
           : `${profile?.companyName || stock.companyName} is showing real quote/news data where available, with ticker-aware chart fallback until provider data is complete.`,
       quoteStats: createQuoteStats(quote),
-      quoteSourceLabel: quote ? "Finnhub quote" : "Demo fallback",
+      quoteSourceLabel: quote ? "Finnhub quote" : "Market data unavailable",
       priceReadLabel: quote?.marketStatus === "open" ? "Market open" : "Market delayed",
       quoteStatusDetail: quote
         ? `Open ${formatCurrency(quote.open)} - Prev close ${formatCurrency(quote.previousClose)}`
-        : "Quote data is using ticker-aware fallback.",
+        : "Market data partially available.",
       quickFacts: [
         {
           label: "Narrative",
@@ -599,10 +599,10 @@ function hasAnyLiveChartRange(marketData?: StockDetailMarketData) {
 function createQuoteStats(quote?: StockQuote) {
   if (!quote) {
     return [
-      { label: "Open", value: "Demo pending" },
-      { label: "High", value: "Demo pending" },
-      { label: "Low", value: "Demo pending" },
-      { label: "Prev close", value: "Demo pending" },
+      { label: "Open", value: "Unavailable" },
+      { label: "High", value: "Unavailable" },
+      { label: "Low", value: "Unavailable" },
+      { label: "Prev close", value: "Unavailable" },
     ];
   }
 

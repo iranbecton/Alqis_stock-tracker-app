@@ -1,52 +1,79 @@
 "use client";
 
-import { FormEvent, useMemo, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/input";
-import { demoStocks } from "@/lib/stocks/demo-stocks";
 
-function getTickerSearchScore(stock: (typeof demoStocks)[number], query: string) {
-  if (!query) {
-    return 1;
-  }
+type SearchResult = {
+  ticker: string;
+  name: string;
+  exchange: string;
+  type: string;
+  currency: string;
+  source: "finnhub" | "local";
+};
 
-  const symbol = stock.symbol.toUpperCase();
-  const companyName = stock.companyName.toUpperCase();
-
-  if (symbol === query) return 100;
-  if (symbol.startsWith(query)) return 90;
-  if (companyName.startsWith(query)) return 80;
-  if (symbol.includes(query)) return 70;
-  if (companyName.includes(query)) return 60;
-
-  return 0;
-}
+type SearchResponse = {
+  results: SearchResult[];
+  providerStatus: "ok" | "fallback" | "error";
+};
 
 export function TickerSearch() {
   const router = useRouter();
   const [query, setQuery] = useState("");
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [providerStatus, setProviderStatus] =
+    useState<SearchResponse["providerStatus"]>("fallback");
+  const [isLoading, setIsLoading] = useState(false);
   const normalizedQuery = query.trim().toUpperCase();
   const inputId = "ticker-search-input";
 
-  const matches = useMemo(() => {
-    if (!normalizedQuery) {
-      return demoStocks;
-    }
+  useEffect(() => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(async () => {
+      setIsLoading(true);
 
-    return demoStocks
-      .map((stock) => ({
-        stock,
-        score: getTickerSearchScore(stock, normalizedQuery),
-      }))
-      .filter((match) => match.score > 0)
-      .sort((a, b) => b.score - a.score || a.stock.symbol.localeCompare(b.stock.symbol))
-      .map((match) => match.stock);
-  }, [normalizedQuery]);
+      try {
+        const response = await fetch(
+          `/api/search/stocks?q=${encodeURIComponent(query.trim())}`,
+          {
+            signal: controller.signal,
+          }
+        );
+        const json = (await response.json()) as SearchResponse;
 
-  const submitTarget = normalizedQuery ? matches[0] : undefined;
+        if (!response.ok) {
+          throw new Error("Search failed.");
+        }
+
+        setResults(json.results ?? []);
+        setProviderStatus(json.providerStatus ?? "fallback");
+      } catch (error) {
+        if (!controller.signal.aborted) {
+          setResults([]);
+          setProviderStatus("error");
+
+          if (process.env.NODE_ENV === "development") {
+            console.error("[ALQIS search] Client search failed", { error });
+          }
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setIsLoading(false);
+        }
+      }
+    }, normalizedQuery ? 220 : 0);
+
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [query, normalizedQuery]);
+
+  const submitTarget = normalizedQuery ? results[0] : undefined;
 
   function navigateToTicker(symbol: string) {
     router.push(`/stocks/${symbol.trim().toUpperCase()}`);
@@ -56,7 +83,7 @@ export function TickerSearch() {
     event.preventDefault();
 
     if (submitTarget) {
-      navigateToTicker(submitTarget.symbol);
+      navigateToTicker(submitTarget.ticker);
     }
   }
 
@@ -99,34 +126,50 @@ export function TickerSearch() {
           </Button>
         </div>
         <p id="ticker-search-status" className="text-body-sm text-ink-subtle">
-          {normalizedQuery
-            ? `${matches.length} tracked result${matches.length === 1 ? "" : "s"}`
-            : "Type a symbol or company name to filter the tracked universe."}
-          {submitTarget ? ` Press Enter to open ${submitTarget.symbol}.` : null}
+          {isLoading
+            ? "Searching market symbols..."
+            : normalizedQuery
+              ? `${results.length} result${results.length === 1 ? "" : "s"}`
+              : "Type a symbol or company name to search the ALQIS universe."}
+          {submitTarget ? ` Press Enter to open ${submitTarget.ticker}.` : null}
         </p>
+        {providerStatus === "fallback" ? (
+          <p className="text-body-sm text-accent-ai">
+            Showing curated ALQIS universe.
+          </p>
+        ) : null}
       </form>
 
       <div className="mt-4 rounded-[var(--radius-xl)] border border-border/60 bg-surface/36 p-2">
-        {matches.length > 0 ? (
+        {isLoading ? (
+          <div className="rounded-[var(--radius-lg)] border border-border/60 bg-surface-elevated/62 px-4 py-5">
+            <p className="text-sm font-medium text-ink">Searching...</p>
+            <p className="mt-1 text-body-sm text-ink-muted">
+              Checking available market symbols.
+            </p>
+          </div>
+        ) : results.length > 0 ? (
           <ul className="grid gap-2">
-            {matches.map((stock) => (
-              <li key={stock.symbol}>
+            {results.map((result) => (
+              <li key={`${result.source}-${result.ticker}`}>
                 <button
                   type="button"
-                  onClick={() => navigateToTicker(stock.symbol)}
+                  onClick={() => navigateToTicker(result.ticker)}
                   className="group flex w-full items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-transparent px-3 py-3 text-left transition duration-[var(--duration-fast)] hover:border-border-strong hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-accent"
                 >
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
                       <span className="text-base font-semibold text-ink" data-numeric>
-                        {stock.symbol}
+                        {result.ticker}
                       </span>
                       <span className="truncate text-body-sm text-ink-muted">
-                        {stock.companyName}
+                        {result.name}
                       </span>
                     </span>
                     <span className="mt-1 block text-body-sm text-ink-subtle">
-                      {stock.sector}
+                      {[result.exchange, result.type, result.currency]
+                        .filter(Boolean)
+                        .join(" / ")}
                     </span>
                   </span>
                   <ArrowRight className="h-4 w-4 shrink-0 text-ink-subtle transition group-hover:translate-x-0.5 group-hover:text-accent" />
@@ -136,9 +179,9 @@ export function TickerSearch() {
           </ul>
         ) : (
           <div className="rounded-[var(--radius-lg)] border border-border/60 bg-surface-elevated/62 px-4 py-5">
-            <p className="text-sm font-medium text-ink">No tracked ticker found.</p>
+            <p className="text-sm font-medium text-ink">No matching ticker found.</p>
             <p className="mt-1 text-body-sm text-ink-muted">
-              Try NVDA, AAPL, MSFT, AMD, or TSLA while the tracked universe expands.
+              Try a symbol or company name from the curated ALQIS universe.
             </p>
           </div>
         )}

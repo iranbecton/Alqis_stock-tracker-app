@@ -44,6 +44,27 @@ type FinnhubProfileResponse = {
   weburl?: string;
 };
 
+type FinnhubSearchResponse = {
+  count?: number;
+  result?: Array<{
+    currency?: string;
+    description?: string;
+    displaySymbol?: string;
+    figi?: string;
+    mic?: string;
+    symbol?: string;
+    type?: string;
+  }>;
+};
+
+export type FinnhubSymbolSearchResult = {
+  ticker: string;
+  name: string;
+  exchange?: string;
+  type?: string;
+  currency?: string;
+};
+
 export class FinnhubProviderError extends Error {
   provider = "finnhub";
   providerAccessError: boolean;
@@ -265,4 +286,26 @@ export async function getFinnhubCompanyProfile(symbol: string): Promise<CompanyP
     logo: raw.logo,
     webUrl: raw.weburl,
   };
+}
+
+export async function searchFinnhubSymbols(
+  query: string
+): Promise<FinnhubSymbolSearchResult[]> {
+  const normalizedQuery = query.trim();
+
+  if (!normalizedQuery) {
+    return [];
+  }
+
+  const raw = await fetchFinnhub<FinnhubSearchResponse>("/search", {
+    q: normalizedQuery,
+  });
+
+  return (raw.result ?? []).map((item) => ({
+    ticker: (item.displaySymbol || item.symbol || "").trim().toUpperCase(),
+    name: item.description || item.displaySymbol || item.symbol || "",
+    exchange: item.mic,
+    type: item.type,
+    currency: item.currency,
+  }));
 }
