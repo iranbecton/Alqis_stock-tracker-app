@@ -54,7 +54,7 @@ export default async function DashboardPage() {
   return (
     <main className="min-h-dvh bg-[linear-gradient(180deg,var(--background)_0%,#050b0f_100%)]">
       <header className="border-b border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_97%,var(--surface)_3%)_0%,color-mix(in_srgb,var(--background)_88%,transparent)_100%)] backdrop-blur-xl">
-        <PageContainer className="flex items-center justify-between gap-4 py-4">
+        <PageContainer className="flex flex-wrap items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-lg)] border border-accent-ai/16 bg-[color-mix(in_srgb,var(--accent-ai)_14%,transparent)] text-sm font-semibold tracking-[0.2em] text-accent-ai">
               A
@@ -66,7 +66,7 @@ export default async function DashboardPage() {
           </div>
 
           <form action={signOutAction}>
-            <Button type="submit" variant="quiet" size="md">
+            <Button type="submit" variant="quiet" size="md" className="h-11">
               <LogOut className="h-4 w-4" />
               Logout
             </Button>
@@ -74,7 +74,7 @@ export default async function DashboardPage() {
         </PageContainer>
       </header>
 
-      <PageContainer className="py-8 sm:py-10">
+      <PageContainer className="py-5 sm:py-10">
         <section className="space-y-6">
           <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
             <div className="max-w-3xl space-y-3">
@@ -83,18 +83,18 @@ export default async function DashboardPage() {
                 Protected intelligence shell
               </Badge>
               <div className="space-y-2">
-                <h1 className="font-serif text-[2.6rem] leading-none tracking-tight text-ink sm:text-[3.75rem]">
+                <h1 className="font-serif text-[2.2rem] leading-[0.98] tracking-tight text-ink sm:text-[3.75rem]">
                   Welcome to ALQIS.
                 </h1>
-                <p className="text-body-lg text-ink-muted">
+                <p className="break-words text-body text-ink-muted sm:text-body-lg">
                   Signed in as {user.email}. Search a ticker to open the explanation-led stock detail screen.
                 </p>
               </div>
             </div>
 
-            <div className="rounded-[var(--radius-xl)] border border-border/60 bg-surface/42 px-4 py-3">
+            <div className="w-full rounded-[var(--radius-xl)] border border-border/60 bg-surface/42 px-4 py-3 lg:w-auto">
               <p className="section-kicker">Tracked universe</p>
-              <p className="mt-1 text-body-sm text-ink-muted">
+              <p className="mt-1 break-words text-body-sm text-ink-muted">
                 {demoStocks.map((stock) => stock.symbol).join(" / ")}
               </p>
             </div>
@@ -109,7 +109,7 @@ export default async function DashboardPage() {
             <div className="space-y-4">
               <div>
                 <p className="section-kicker">Stock intelligence search</p>
-                <h2 className="mt-2 font-serif text-[2rem] leading-tight tracking-tight text-ink sm:text-[2.4rem]">
+                <h2 className="mt-2 font-serif text-[1.65rem] leading-tight tracking-tight text-ink sm:text-[2.4rem]">
                   Search for a market read.
                 </h2>
               </div>
@@ -135,17 +135,17 @@ export default async function DashboardPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="grid gap-3 sm:grid-cols-2">
+                <div className="grid gap-3 lg:grid-cols-2">
                   {demoStocks.slice(0, 4).map((stock) => (
                     <Link
                       key={stock.symbol}
                       href={`/stocks/${stock.symbol}`}
-                      className="group rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--surface)_18%)] p-4 transition duration-[var(--duration-fast)] hover:border-border-strong hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-accent"
+                      className="group min-w-0 rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--surface)_18%)] p-4 transition duration-[var(--duration-fast)] hover:border-border-strong hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-accent"
                     >
-                      <div className="flex items-start justify-between gap-3">
-                        <div>
+                      <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between">
+                        <div className="min-w-0">
                           <p className="text-lg font-semibold text-ink">{stock.symbol}</p>
-                          <p className="mt-1 text-body-sm text-ink-muted">
+                          <p className="mt-1 break-words text-body-sm text-ink-muted">
                             {stock.companyName}
                           </p>
                         </div>
@@ -157,7 +157,7 @@ export default async function DashboardPage() {
                           {stock.dailyChangePercent.toFixed(2)}%
                         </Badge>
                       </div>
-                      <div className="mt-4 flex items-center gap-2 text-body-sm text-ink-subtle">
+                      <div className="mt-4 flex items-start gap-2 text-body-sm text-ink-subtle">
                         <LineChart className="h-4 w-4 text-accent-secondary" />
                         {stock.headline}
                       </div>

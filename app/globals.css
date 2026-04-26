@@ -103,10 +103,10 @@
   --ring: color-mix(in srgb, var(--accent-secondary) 42%, transparent);
 
   /* Typography scale */
-  --type-display: clamp(3rem, 5vw, 5.5rem);
-  --type-page-title: clamp(2.375rem, 4vw, 4rem);
-  --type-section-title: clamp(1.625rem, 2vw, 2.375rem);
-  --type-card-title: clamp(1.25rem, 1.4vw, 1.75rem);
+  --type-display: clamp(2.5rem, 13vw, 5.5rem);
+  --type-page-title: clamp(2.15rem, 10vw, 4rem);
+  --type-section-title: clamp(1.45rem, 7vw, 2.375rem);
+  --type-card-title: clamp(1.18rem, 5vw, 1.75rem);
   --type-body-lg: 1.0625rem;
   --type-body: 0.9375rem;
   --type-body-sm: 0.84375rem;
@@ -125,7 +125,7 @@
   /* Layout rules */
   --container-max: 106rem;
   --container-reading: 48rem;
-  --page-padding-mobile: 1.25rem;
+  --page-padding-mobile: clamp(1rem, 4vw, 1.25rem);
   --page-padding-desktop: 2.75rem;
 
   /* Elevation */
@@ -161,6 +161,7 @@
   html,
   body {
     min-height: 100%;
+    overflow-x: hidden;
   }
 
   html {
@@ -251,8 +252,8 @@
   .page-shell {
     display: flex;
     flex-direction: column;
-    gap: 2rem;
-    padding-block: 0.75rem 1.75rem;
+    gap: 1.35rem;
+    padding-block: 0.75rem max(1.75rem, env(safe-area-inset-bottom));
   }
 
   .page-section {
@@ -331,7 +332,7 @@
 
   .chart-frame {
     position: relative;
-    overflow: hidden;
+    overflow: visible;
     border: 1px solid var(--border);
     border-radius: var(--radius-xl);
     background:
@@ -349,6 +350,7 @@
     position: absolute;
     inset: 0;
     pointer-events: none;
+    border-radius: inherit;
     background:
       radial-gradient(circle at top left, rgba(142, 216, 208, 0.06), transparent 30%),
       radial-gradient(circle at bottom right, rgba(139, 132, 199, 0.06), transparent 26%),
@@ -358,7 +360,7 @@
   .chart-surface {
     position: relative;
     min-height: 18rem;
-    padding: 1.25rem;
+    padding: 0.875rem;
   }
 
   .dense-finance-grid {
@@ -381,6 +383,17 @@
 
   .dense-finance-row > :first-child {
     min-width: 0;
+  }
+
+  @media (max-width: 30rem) {
+    .dense-finance-row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 0.5rem;
+    }
+
+    .dense-finance-row > :last-child {
+      justify-self: start;
+    }
   }
 
   .dense-finance-meta {
@@ -435,6 +448,10 @@
 
     .page-section {
       gap: 1.5rem;
+    }
+
+    .chart-surface {
+      padding: 1.25rem;
     }
   }
 }

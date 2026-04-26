@@ -473,19 +473,19 @@ function TickerNotFound({ ticker }: { ticker: string }) {
 
   return (
     <main className="min-h-dvh bg-[linear-gradient(180deg,var(--background)_0%,#050b0f_100%)]">
-      <PageContainer className="flex min-h-dvh items-center py-10">
+      <PageContainer className="flex min-h-dvh items-center py-6 sm:py-10">
         <EmptyState
           variant="panel"
           icon={<SearchX className="h-5 w-5" />}
           title={`${normalizedTicker || "Ticker"} could not be resolved.`}
           description="ALQIS could not load live provider data for this ticker, and there is no local demo fallback for it. Try one of the demo tickers while provider coverage is still being hardened."
           action={
-            <div className="flex flex-wrap gap-3">
-              <Button asChild variant="primary" size="md">
+            <div className="grid w-full gap-3 sm:flex sm:flex-wrap">
+              <Button asChild variant="primary" size="md" className="w-full sm:w-auto">
                 <Link href="/dashboard">Back to dashboard</Link>
               </Button>
               {demoStocks.map((stock) => (
-                <Button key={stock.symbol} asChild variant="secondary" size="md">
+                <Button key={stock.symbol} asChild variant="secondary" size="md" className="w-full sm:w-auto">
                   <Link href={`/stocks/${stock.symbol}`}>{stock.symbol}</Link>
                 </Button>
               ))}

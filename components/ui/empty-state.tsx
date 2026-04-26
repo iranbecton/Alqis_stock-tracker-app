@@ -42,8 +42,8 @@ export function EmptyState({
         <h3 className="text-lg font-medium tracking-tight text-ink">{title}</h3>
         {description ? <p className="text-body text-ink-muted">{description}</p> : null}
       </div>
-      {action ? <div className="pt-1">{action}</div> : null}
-      {meta ? <div className="text-body-sm text-ink-subtle">{meta}</div> : null}
+      {action ? <div className="w-full pt-1">{action}</div> : null}
+      {meta ? <div className="break-words text-body-sm text-ink-subtle">{meta}</div> : null}
     </div>
   );
 }

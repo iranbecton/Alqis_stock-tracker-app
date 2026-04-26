@@ -88,7 +88,7 @@ export function TickerSearch() {
   }
 
   return (
-    <div className="rounded-[var(--radius-2xl)] border border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-secondary)_8%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-ai)_5%)_100%)] p-4 shadow-elevation-2 sm:p-5">
+    <div className="rounded-[var(--radius-xl)] border border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-secondary)_8%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-ai)_5%)_100%)] p-4 shadow-elevation-2 sm:rounded-[var(--radius-2xl)] sm:p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
           <Badge variant="ai" size="md" className="w-fit">
@@ -96,7 +96,7 @@ export function TickerSearch() {
             Stock intelligence search
           </Badge>
           <div>
-            <h2 className="font-serif text-3xl tracking-tight text-ink">
+            <h2 className="font-serif text-[1.75rem] leading-tight tracking-tight text-ink sm:text-3xl">
               Start with a ticker.
             </h2>
             <p className="mt-1 text-body text-ink-muted">
@@ -120,7 +120,13 @@ export function TickerSearch() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
-          <Button type="submit" variant="primary" size="lg" disabled={!submitTarget}>
+          <Button
+            type="submit"
+            variant="primary"
+            size="lg"
+            disabled={!submitTarget}
+            className="w-full sm:w-auto"
+          >
             Open
             <ArrowRight className="h-4 w-4" />
           </Button>
@@ -153,20 +159,20 @@ export function TickerSearch() {
             </p>
           </div>
         ) : results.length > 0 ? (
-          <ul className="grid max-h-[28rem] gap-2 overflow-y-auto pr-1">
+          <ul className="grid max-h-[22rem] gap-2 overflow-y-auto pr-1 sm:max-h-[28rem]">
             {results.map((result) => (
               <li key={`${result.source}-${result.ticker}`}>
                 <button
                   type="button"
                   onClick={() => navigateToTicker(result.ticker)}
-                  className="group flex w-full items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-transparent px-3 py-3 text-left transition duration-[var(--duration-fast)] hover:border-border-strong hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-accent"
+                  className="group flex min-h-14 w-full items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-transparent px-3 py-3 text-left transition duration-[var(--duration-fast)] hover:border-border-strong hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-accent"
                 >
                   <span className="min-w-0">
-                    <span className="flex items-center gap-2">
-                      <span className="text-base font-semibold text-ink" data-numeric>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="shrink-0 text-base font-semibold text-ink" data-numeric>
                         {result.ticker}
                       </span>
-                      <span className="truncate text-body-sm text-ink-muted">
+                      <span className="min-w-0 flex-1 truncate text-body-sm text-ink-muted">
                         {result.name}
                       </span>
                     </span>

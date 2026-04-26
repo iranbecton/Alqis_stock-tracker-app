@@ -31,12 +31,16 @@ export function SectionHeader({
       <div className="min-w-0 space-y-3">
         {eyebrow ? <div className="section-kicker">{eyebrow}</div> : null}
         <div className="space-y-2">
-          <h2 className="section-title font-serif">{title}</h2>
+          <h2 className="break-words section-title font-serif">{title}</h2>
           {description ? <p className="section-copy">{description}</p> : null}
         </div>
       </div>
 
-      {actions ? <div className="flex shrink-0 items-center gap-3">{actions}</div> : null}
+      {actions ? (
+        <div className="flex w-full shrink-0 items-center gap-3 md:w-auto">
+          {actions}
+        </div>
+      ) : null}
     </div>
   );
 }

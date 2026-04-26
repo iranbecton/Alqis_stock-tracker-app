@@ -28,7 +28,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
       variant="elevated"
       padding="lg"
       radius="xl"
-      className="relative self-start overflow-hidden border-accent-ai/14 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_88%,var(--accent-ai)_12%)_0%,color-mix(in_srgb,var(--surface)_95%,var(--accent-ai)_5%)_100%)] shadow-[0_36px_90px_rgba(2,6,12,0.42)] xl:sticky xl:top-6"
+      className="relative self-start overflow-hidden border-accent-ai/14 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_88%,var(--accent-ai)_12%)_0%,color-mix(in_srgb,var(--surface)_95%,var(--accent-ai)_5%)_100%)] p-4 shadow-[0_36px_90px_rgba(2,6,12,0.42)] sm:p-6 lg:p-8 xl:sticky xl:top-6"
     >
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(139,132,199,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(114,199,190,0.06),transparent_28%),linear-gradient(180deg,rgba(255,255,255,0.02),transparent_26%)]" />
 
@@ -61,7 +61,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
           </div>
 
           <div className="space-y-2.5">
-            <h2 className="font-serif text-[2.15rem] leading-[0.98] tracking-tight text-ink sm:text-[2.85rem]">
+            <h2 className="font-serif text-[1.85rem] leading-[1] tracking-tight text-ink sm:text-[2.85rem]">
               {explanation.headline}
             </h2>
             <p className="max-w-2xl text-body text-ink-muted">{explanation.summary}</p>
@@ -156,7 +156,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
             ))}
             {hiddenCounterEvidence.length ? (
               <details className="group rounded-[var(--radius-md)] border border-border/50 bg-surface/30">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-ink">
+          <summary className="flex min-h-12 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-ink">
                   <span>View all counterevidence</span>
                   <span className="rounded-full border border-border/60 bg-surface/40 px-2.5 py-1 text-[0.68rem] uppercase tracking-[0.16em] text-ink-subtle">
                     +{hiddenCounterEvidence.length}
@@ -183,7 +183,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
         </section>
 
         <details className="group rounded-[var(--radius-lg)] border border-accent-ai/12 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-ai)_6%)]">
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-left">
+          <summary className="flex min-h-14 cursor-pointer list-none items-center justify-between gap-3 px-4 py-3.5 text-left">
             <div className="space-y-1.5">
               <p className="section-kicker">What would change this read</p>
               <p className="text-sm font-medium text-ink">

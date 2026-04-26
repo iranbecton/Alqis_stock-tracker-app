@@ -101,7 +101,7 @@ export function WatchlistSection({
             size="sm"
             disabled={isRefreshing}
             onClick={() => void refreshWatchlist()}
-            className="w-fit"
+            className="min-h-11 w-full sm:w-fit"
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Updating reads..." : "Refresh reads"}
@@ -158,7 +158,7 @@ function WatchlistIntelligenceCard({
   return (
     <article className="group min-w-0 rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_84%,var(--surface)_16%)] p-4 transition duration-[var(--duration-fast)] hover:border-accent-secondary/35 hover:bg-surface-elevated">
       <div className="flex h-full min-w-0 flex-col gap-4">
-        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
+        <div className="grid min-w-0 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_auto] min-[430px]:items-start">
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
               <p className="min-w-0 truncate text-lg font-semibold tracking-tight text-ink">
@@ -175,7 +175,7 @@ function WatchlistIntelligenceCard({
               {formatRefreshedAt(item.refreshedAt)}
             </p>
           </div>
-          <div className="min-w-[7.25rem] shrink-0 text-right">
+          <div className="min-w-0 text-left min-[430px]:min-w-[7.25rem] min-[430px]:shrink-0 min-[430px]:text-right">
             <p className="text-lg font-semibold tracking-tight text-ink" data-numeric>
               {formatCurrencyOrDash(item.currentPrice)}
             </p>
@@ -208,7 +208,7 @@ function WatchlistIntelligenceCard({
         </Link>
 
         <div className="mt-auto flex items-center justify-between gap-3 border-t border-border/60 pt-3">
-          <Button asChild variant="quiet" size="sm" className="min-w-0">
+          <Button asChild variant="quiet" size="sm" className="min-h-10 min-w-0">
             <Link href={`/stocks/${item.ticker}`}>
               <span className="truncate">Open read</span>
               <ExternalLink className="h-3.5 w-3.5" />

@@ -21,8 +21,8 @@ const cardVariants = cva(
       padding: {
         none: "p-0",
         sm: "p-4",
-        md: "p-6",
-        lg: "p-8",
+        md: "p-4 sm:p-6",
+        lg: "p-4 sm:p-6 lg:p-8",
       },
       radius: {
         md: "rounded-[var(--radius-md)]",
@@ -79,7 +79,7 @@ export const CardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn("text-card-title font-serif text-ink", className)}
+    className={cn("break-words text-card-title font-serif text-ink", className)}
     {...props}
   />
 ));
@@ -89,7 +89,7 @@ export const CardDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p ref={ref} className={cn("text-body text-ink-muted", className)} {...props} />
+  <p ref={ref} className={cn("break-words text-body text-ink-muted", className)} {...props} />
 ));
 CardDescription.displayName = "CardDescription";
 

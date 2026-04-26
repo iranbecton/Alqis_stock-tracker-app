@@ -38,7 +38,7 @@ export function ErrorState({
       <div className="min-w-0 flex-1 space-y-2">
         <h3 className="text-base font-medium tracking-tight text-ink">{title}</h3>
         {description ? <p className="text-body text-ink-muted">{description}</p> : null}
-        {action ? <div className="pt-1">{action}</div> : null}
+        {action ? <div className="w-full pt-1">{action}</div> : null}
       </div>
     </div>
   );

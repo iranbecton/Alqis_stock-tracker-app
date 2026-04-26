@@ -387,7 +387,9 @@ function MarkerTooltip({
     <div
       className={cn(
         "pointer-events-none absolute z-20 rounded-[1.1rem] border border-white/10 bg-[rgba(7,12,18,0.94)] px-3.5 py-3 shadow-[0_18px_42px_rgba(0,0,0,0.36)] backdrop-blur-xl transition-all duration-150",
-        group.members.length > 1 ? "w-[258px]" : "w-[208px]"
+        group.members.length > 1
+          ? "w-[min(16.125rem,calc(100vw-2.5rem))]"
+          : "w-[min(13rem,calc(100vw-2.5rem))]"
       )}
       style={{
         left: placement.left,
@@ -720,8 +722,8 @@ export function PriceLineChart({
   return (
     <div
       ref={chartRef}
-      className={cn(
-        "relative overflow-visible rounded-[1.75rem] border border-border/80 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_94%,#18222f_6%)_0%,color-mix(in_srgb,var(--surface)_96%,#0a1018_4%)_100%)] p-4 sm:p-6",
+          className={cn(
+        "relative overflow-visible rounded-[1.35rem] border border-border/80 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_94%,#18222f_6%)_0%,color-mix(in_srgb,var(--surface)_96%,#0a1018_4%)_100%)] p-3 sm:rounded-[1.75rem] sm:p-6",
         className
       )}
     >
@@ -731,7 +733,7 @@ export function PriceLineChart({
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
-          className="relative h-[280px] w-full sm:h-[360px]"
+          className="relative h-[260px] w-full sm:h-[360px]"
           role="img"
           aria-label="Price chart with interactive checkpoints and catalyst markers"
         >
@@ -1050,7 +1052,7 @@ export function PriceLineChart({
             <button
               key={`anchor-${group.key}`}
               type="button"
-              className="absolute h-8 w-8 -translate-x-1/2 -translate-y-1/2 rounded-full outline-none transition-transform duration-150 hover:scale-105 focus-visible:scale-105 focus-visible:ring-2 focus-visible:ring-white/30"
+              className="absolute h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full outline-none transition-transform duration-150 hover:scale-105 focus-visible:scale-105 focus-visible:ring-2 focus-visible:ring-white/30"
               style={{
                 left: `${(marker.point.x / width) * 100}%`,
                 top: `${(marker.point.y / height) * 100}%`,

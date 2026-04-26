@@ -1368,7 +1368,7 @@ function formatChartLabel(value: string, range: MarketChartRange) {
 function TopBar() {
   return (
     <header className="relative z-10 border-b border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_97%,var(--surface)_3%)_0%,color-mix(in_srgb,var(--background)_88%,transparent)_100%)] shadow-[0_10px_30px_rgba(2,6,10,0.12)]">
-      <PageContainer className="flex items-center justify-between gap-4 py-4">
+      <PageContainer className="flex flex-wrap items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
         <div className="flex items-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-lg)] border border-accent-ai/16 bg-[color-mix(in_srgb,var(--accent-ai)_14%,transparent)] text-sm font-semibold tracking-[0.2em] text-accent-ai">
             A
@@ -1556,18 +1556,18 @@ function PeerComparisonCard({ data }: { data: StockDetailData }) {
             key={peer.symbol}
             className="rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_80%,var(--surface)_20%)] p-4"
           >
-            <div className="flex items-start justify-between gap-3">
-              <div>
+            <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between">
+              <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-base font-semibold tracking-tight text-ink">
                     {peer.symbol}
                   </span>
-                  <span className="text-body-sm text-ink-muted">{peer.name}</span>
+                  <span className="break-words text-body-sm text-ink-muted">{peer.name}</span>
                 </div>
                 <p className="mt-2 text-body-sm text-ink-muted">{peer.note}</p>
               </div>
 
-              <div className="text-right">
+              <div className="shrink-0 text-left min-[430px]:text-right">
                 <p className="text-base font-medium text-ink" data-numeric>
                   {peer.price}
                 </p>
