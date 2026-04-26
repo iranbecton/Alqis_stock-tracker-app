@@ -27,7 +27,10 @@ const cache = new Map<
 >();
 
 export async function enrichWatchlistItems(
-  items: WatchlistApiItem[]
+  items: WatchlistApiItem[],
+  options: {
+    bypassCache?: boolean;
+  } = {}
 ): Promise<WatchlistIntelligenceItem[]> {
   const headerList = await headers();
   const host = headerList.get("host");
@@ -41,17 +44,20 @@ export async function enrichWatchlistItems(
   const baseUrl = `${protocol}://${host}`;
 
   return Promise.all(
-    items.map((item) => enrichWatchlistItem(item, baseUrl, cookie))
+    items.map((item) => enrichWatchlistItem(item, baseUrl, cookie, options))
   );
 }
 
 async function enrichWatchlistItem(
   item: WatchlistApiItem,
   baseUrl: string,
-  cookie: string
+  cookie: string,
+  options: {
+    bypassCache?: boolean;
+  }
 ): Promise<WatchlistIntelligenceItem> {
   const cacheKey = `${item.ticker}:${item.createdAt}`;
-  const cached = getCachedItem(cacheKey);
+  const cached = options.bypassCache ? undefined : getCachedItem(cacheKey);
 
   if (cached) {
     return cached;
@@ -81,12 +87,44 @@ async function enrichWatchlistItem(
     explanationResult.status === "fulfilled"
       ? normalizeExplanation(explanationResult.value)
       : undefined;
+  const hasExplanationChart = typeof explanation?.chartMovePct === "number";
+  const inferredNewsCount = Math.max(
+    0,
+    (explanation?.sourceCount ?? 0) - Number(Boolean(quote)) - Number(hasExplanationChart)
+  );
   const dataHealth = evaluateStockDataHealth({
     quote,
     profile: quote?.companyProfile ?? null,
+    chartPoints: hasExplanationChart
+      ? [
+          {
+            time: new Date().toISOString(),
+            open: 1,
+            high: 1,
+            low: 1,
+            close: 1,
+          },
+          {
+            time: new Date().toISOString(),
+            open: 1,
+            high: 1,
+            low: 1,
+            close: 1,
+          },
+        ]
+      : [],
     news:
-      explanation?.sourceCount && explanation.sourceCount > 0
-        ? [
+      inferredNewsCount > 0
+        ? Array.from({ length: Math.min(inferredNewsCount, 2) }, (_, index) => ({
+            id: `${item.ticker}-structured-context-${index}`,
+            headline: explanation?.summary ?? `${item.ticker} structured context`,
+            summary: explanation?.summary ?? `${item.ticker} structured context`,
+            source: "ALQIS structured read",
+            url: "",
+            publishedAt: explanation?.generatedAt ?? new Date().toISOString(),
+          }))
+        : explanation
+          ? [
             {
               id: `${item.ticker}-structured-context`,
               headline: explanation.summary,
@@ -96,9 +134,10 @@ async function enrichWatchlistItem(
               publishedAt: explanation.generatedAt,
             },
           ]
-        : [],
+          : [],
   });
   const providerStatus = getProviderStatus(dataHealth.overallStatus);
+  const dataState = getDataState(dataHealth.overallStatus);
   const intelligenceItem: WatchlistIntelligenceItem = {
     id: item.id,
     ticker: item.ticker,
@@ -117,6 +156,8 @@ async function enrichWatchlistItem(
         : dataHealth.userFacingLabel,
     quickRead: createQuickRead(item.ticker, quote, explanation),
     providerStatus,
+    dataState,
+    refreshedAt: new Date().toISOString(),
   };
 
   setCachedItem(cacheKey, intelligenceItem);
@@ -225,6 +266,24 @@ function getProviderStatus(
   return "unavailable";
 }
 
+function getDataState(
+  overallStatus: ReturnType<typeof evaluateStockDataHealth>["overallStatus"]
+): WatchlistIntelligenceItem["dataState"] {
+  if (overallStatus === "complete") {
+    return "Live data";
+  }
+
+  if (overallStatus === "partial") {
+    return "Partial data";
+  }
+
+  if (overallStatus === "limited") {
+    return "Data limited";
+  }
+
+  return "Data unavailable";
+}
+
 function createUnavailableItem(item: WatchlistApiItem): WatchlistIntelligenceItem {
   return {
     id: item.id,
@@ -239,6 +298,8 @@ function createUnavailableItem(item: WatchlistApiItem): WatchlistIntelligenceIte
     readStatus: "Market data unavailable",
     quickRead: "Market data unavailable. Open the full read to refresh.",
     providerStatus: "unavailable",
+    dataState: "Data unavailable",
+    refreshedAt: new Date().toISOString(),
   };
 }
 

@@ -2,9 +2,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import type { ReactNode } from "react";
 import {
-  Bookmark,
   BrainCircuit,
-  ExternalLink,
   LineChart,
   LogOut,
   Sparkles,
@@ -12,7 +10,7 @@ import {
 import { TickerSearch } from "@/components/stocks/ticker-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { WatchlistRemoveButton } from "@/components/watchlist/watchlist-remove-button";
+import { WatchlistSection } from "@/components/watchlist/watchlist-section";
 import {
   Card,
   CardContent,
@@ -21,16 +19,12 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { PageContainer } from "@/components/ui/layout";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { demoStocks } from "@/lib/stocks/demo-stocks";
 import { enrichWatchlistItems } from "@/lib/watchlist/intelligence";
-import type {
-  WatchlistApiItem,
-  WatchlistIntelligenceItem,
-} from "@/lib/watchlist/types";
+import type { WatchlistApiItem } from "@/lib/watchlist/types";
 import { signOutAction } from "./actions";
 
 export const dynamic = "force-dynamic";
@@ -106,7 +100,10 @@ export default async function DashboardPage() {
             </div>
           </div>
 
-          <WatchlistCard items={watchlistItems} error={watchlistError} />
+          <WatchlistSection
+            initialItems={watchlistItems}
+            initialError={watchlistError}
+          />
 
           <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.42fr)]">
             <div className="space-y-4">
@@ -215,192 +212,6 @@ async function getDashboardWatchlist(
       createdAt: item.created_at,
     })),
   };
-}
-
-function WatchlistCard({
-  items,
-  error,
-}: {
-  items: WatchlistIntelligenceItem[];
-  error?: string;
-}) {
-  return (
-    <Card
-      variant="subtle"
-      radius="xl"
-      className="border-accent-ai/16 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_84%,var(--accent-ai)_9%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-secondary)_4%)_100%)] shadow-[0_24px_60px_rgba(2,6,10,0.22)]"
-    >
-      <CardHeader>
-        <CardEyebrow>
-          <Bookmark className="h-3.5 w-3.5" />
-          Your Watchlist
-        </CardEyebrow>
-        <CardTitle>Saved market reads.</CardTitle>
-        <CardDescription>
-          Personal tickers you want ALQIS to keep close for explanation-led review.
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent>
-        {error ? (
-          <div className="rounded-[var(--radius-lg)] border border-warn/20 bg-warn-bg/28 px-4 py-3 text-body-sm text-warn">
-            {error}
-          </div>
-        ) : items.length ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {items.map((item) => (
-              <article
-                key={item.id}
-                className="group min-w-0 rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_84%,var(--surface)_16%)] p-4 transition duration-[var(--duration-fast)] hover:border-accent-secondary/35 hover:bg-surface-elevated"
-              >
-                <div className="flex h-full min-w-0 flex-col gap-4">
-                  <div className="grid min-w-0 grid-cols-[minmax(0,1fr)_auto] items-start gap-3">
-                    <div className="min-w-0">
-                      <div className="flex min-w-0 flex-wrap items-center gap-2">
-                        <p className="min-w-0 truncate text-lg font-semibold tracking-tight text-ink">
-                          {item.ticker}
-                        </p>
-                        <Badge variant={getDirectionBadgeVariant(item.direction)} size="sm">
-                          {formatDirection(item.direction)}
-                        </Badge>
-                      </div>
-                      <p className="mt-1 truncate text-body-sm font-medium text-ink-muted">
-                        {item.companyName ?? "Saved ticker"}
-                      </p>
-                    </div>
-                    <div className="min-w-[7.25rem] shrink-0 text-right">
-                      <p className="text-lg font-semibold tracking-tight text-ink" data-numeric>
-                        {formatCurrencyOrDash(item.currentPrice)}
-                      </p>
-                      <p className={getMoveClassName(item.direction)} data-numeric>
-                        {formatMove(item.change, item.changePercent)}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Link
-                    href={`/stocks/${item.ticker}`}
-                    className="min-w-0 flex-1 rounded-[var(--radius-md)] focus-visible:outline-2 focus-visible:outline-accent focus-visible:outline-offset-4"
-                  >
-                    <div className="flex min-w-0 flex-wrap gap-2">
-                      {item.sector ? (
-                        <Badge variant="outline" size="sm" className="max-w-full normal-case tracking-normal">
-                          {item.sector}
-                        </Badge>
-                      ) : null}
-                      <Badge variant="ai" size="sm" className="max-w-full normal-case tracking-normal">
-                        {item.confidence ?? item.readStatus}
-                      </Badge>
-                      <Badge
-                        variant="outline"
-                        size="sm"
-                        className="max-w-full normal-case tracking-normal"
-                      >
-                        {formatProviderStatus(item.providerStatus)}
-                      </Badge>
-                    </div>
-                    <p className="mt-4 overflow-hidden break-words text-body-sm leading-6 text-ink [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
-                      {shortenQuickRead(item.quickRead)}
-                    </p>
-                  </Link>
-
-                  <div className="mt-auto flex items-center justify-between gap-3 border-t border-border/60 pt-3">
-                    <Button asChild variant="quiet" size="sm" className="min-w-0">
-                      <Link href={`/stocks/${item.ticker}`}>
-                        <span className="truncate">Open read</span>
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Link>
-                    </Button>
-                    <WatchlistRemoveButton ticker={item.ticker} />
-                  </div>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            variant="compact"
-            icon={<Bookmark className="h-5 w-5" />}
-            title="No saved tickers yet."
-            description="Search a stock and save it to start building your ALQIS watchlist."
-            className="rounded-[var(--radius-lg)] border border-dashed border-border/70 bg-surface/45 px-5 py-6"
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function getDirectionBadgeVariant(direction: WatchlistIntelligenceItem["direction"]) {
-  if (direction === "up") return "gain";
-  if (direction === "down") return "loss";
-  return "outline";
-}
-
-function formatDirection(direction: WatchlistIntelligenceItem["direction"]) {
-  if (direction === "up") return "Up";
-  if (direction === "down") return "Down";
-  return "Flat";
-}
-
-function getMoveClassName(direction: WatchlistIntelligenceItem["direction"]) {
-  const base = "mt-1 whitespace-nowrap text-[0.82rem] font-medium leading-5";
-
-  if (direction === "up") {
-    return `${base} text-gain`;
-  }
-
-  if (direction === "down") {
-    return `${base} text-loss`;
-  }
-
-  return `${base} text-ink-subtle`;
-}
-
-function formatProviderStatus(status: WatchlistIntelligenceItem["providerStatus"]) {
-  if (status === "ok") return "Live data";
-  if (status === "partial") return "Partial data";
-  return "Provider unavailable";
-}
-
-function formatCurrencyOrDash(value: number | null) {
-  if (typeof value !== "number") {
-    return "N/A";
-  }
-
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: value >= 100 ? 2 : 2,
-  }).format(value);
-}
-
-function formatMove(change: number | null, changePercent: number | null) {
-  if (typeof change !== "number" || typeof changePercent !== "number") {
-    return "Data unavailable";
-  }
-
-  const changePrefix = change >= 0 ? "+" : "";
-  const pctPrefix = changePercent >= 0 ? "+" : "";
-
-  return `${changePrefix}${formatCompactNumber(change)} / ${pctPrefix}${changePercent.toFixed(2)}%`;
-}
-
-function shortenQuickRead(value: string) {
-  const normalized = value.replace(/\s+/g, " ").trim();
-
-  if (normalized.length <= 132) {
-    return normalized;
-  }
-
-  return `${normalized.slice(0, 129).trim()}...`;
-}
-
-function formatCompactNumber(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
 }
 
 function DashboardPlaceholder({

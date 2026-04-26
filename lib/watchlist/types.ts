@@ -32,4 +32,6 @@ export type WatchlistIntelligenceItem = {
   readStatus: string;
   quickRead: string;
   providerStatus: "ok" | "partial" | "unavailable";
+  dataState: "Live data" | "Partial data" | "Data limited" | "Data unavailable";
+  refreshedAt: string;
 };

@@ -7,9 +7,10 @@ import { Button } from "@/components/ui/button";
 
 type WatchlistRemoveButtonProps = {
   ticker: string;
+  onRemoved?: (ticker: string) => void;
 };
 
-export function WatchlistRemoveButton({ ticker }: WatchlistRemoveButtonProps) {
+export function WatchlistRemoveButton({ ticker, onRemoved }: WatchlistRemoveButtonProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -36,6 +37,7 @@ export function WatchlistRemoveButton({ ticker }: WatchlistRemoveButtonProps) {
         throw new Error(json.error ?? "Unable to remove ticker.");
       }
 
+      onRemoved?.(ticker);
       router.refresh();
     } catch (requestError) {
       setError(
