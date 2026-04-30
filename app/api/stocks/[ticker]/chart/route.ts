@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { withCache } from "@/lib/cache";
+import { chartCacheKey } from "@/lib/cache/keys";
+import { CACHE_TTL } from "@/lib/cache/ttl";
 import { twelveDataChartProvider } from "@/lib/market-data/twelve-data";
 import {
   isValidTicker,
@@ -17,6 +20,7 @@ export async function GET(request: Request, context: RouteContext) {
   const symbol = normalizeTicker(ticker);
   const { searchParams } = new URL(request.url);
   const range = parseChartRange(searchParams.get("range"));
+  const forceRefresh = searchParams.get("refresh") === "true";
 
   if (!isValidTicker(symbol)) {
     return NextResponse.json(
@@ -33,7 +37,30 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   try {
-    const result = await twelveDataChartProvider.getCandles(symbol, range);
+    const { data: result, meta } = await withCache(
+      chartCacheKey(symbol, range),
+      CACHE_TTL.chart,
+      async () => {
+        if (process.env.NODE_ENV === "development") {
+          console.error("[ALQIS chart route] Provider fetch after cache miss", {
+            provider: "twelve-data",
+            symbol,
+            range,
+          });
+        }
+
+        return twelveDataChartProvider.getCandles(symbol, range);
+      },
+      {
+        forceRefresh,
+        shouldCache: (data) => {
+          const result = data as Awaited<
+            ReturnType<typeof twelveDataChartProvider.getCandles>
+          >;
+          return result.status === "ok" || result.status === "empty";
+        },
+      }
+    );
 
     if (result.status !== "ok" && result.status !== "empty") {
       if (process.env.NODE_ENV === "development") {
@@ -62,6 +89,7 @@ export async function GET(request: Request, context: RouteContext) {
           fallback: "demo-chart-structure",
           symbol,
           range,
+          ...meta,
           points: [],
           status: result.providerAccessError
             ? "provider_access_error"
@@ -81,6 +109,7 @@ export async function GET(request: Request, context: RouteContext) {
       status: result.status,
       fallback: result.points.length > 0 ? null : "demo-chart-structure",
       providerMessage: result.providerMessage,
+      ...meta,
     });
   } catch (error) {
     if (process.env.NODE_ENV === "development") {

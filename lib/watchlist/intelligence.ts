@@ -64,7 +64,11 @@ async function enrichWatchlistItem(
   }
 
   const [quoteResult, explanationResult] = await Promise.allSettled([
-    fetchInternalJson<QuotePayload>(baseUrl, `/api/stocks/${item.ticker}/quote`, cookie),
+    fetchInternalJson<QuotePayload>(
+      baseUrl,
+      `/api/stocks/${item.ticker}/quote${options.bypassCache ? "?refresh=true" : ""}`,
+      cookie
+    ),
     fetchInternalJson<ExplainPayload>(
       baseUrl,
       "/api/explain/why-moving",
@@ -75,6 +79,7 @@ async function enrichWatchlistItem(
           ticker: item.ticker,
           timeframe: "1D",
           useAIWording: true,
+          forceRefresh: options.bypassCache === true,
         }),
       }
     ),

@@ -31,6 +31,9 @@ import {
 } from "@/lib/ai/wording/cache";
 import { AI_WORDING_FORBIDDEN_TERMS } from "@/lib/ai/wording/prompt";
 import { validateAIWordingOutput } from "@/lib/ai/wording/validate";
+import { getCache, setCache, withCache } from "@/lib/cache";
+import { explanationCacheKey, stableHash } from "@/lib/cache/keys";
+import { CACHE_TTL } from "@/lib/cache/ttl";
 import {
   isValidTicker,
   normalizeTicker,
@@ -55,6 +58,7 @@ async function parseRequestBody(request: Request): Promise<WhyMovingRequest | nu
       ticker,
       timeframe,
       useAIWording: body.useAIWording === true,
+      forceRefresh: body.forceRefresh === true,
     };
   } catch {
     return null;
@@ -103,12 +107,18 @@ async function fetchInternalJson<T>(pathname: string): Promise<T | undefined> {
 async function getWhyMovingInputs(
   request: WhyMovingRequest
 ): Promise<WhyMovingInputs> {
+  const refreshParam = request.forceRefresh ? "?refresh=true" : "";
+  const chartRefreshParam = request.forceRefresh ? "&refresh=true" : "";
   const [quote, chart, news] = await Promise.all([
-    fetchInternalJson<QuoteApiPayload>(`/api/stocks/${request.ticker}/quote`),
-    fetchInternalJson<ChartApiPayload>(
-      `/api/stocks/${request.ticker}/chart?range=${request.timeframe}`
+    fetchInternalJson<QuoteApiPayload>(
+      `/api/stocks/${request.ticker}/quote${refreshParam}`
     ),
-    fetchInternalJson<NewsApiPayload>(`/api/stocks/${request.ticker}/news`),
+    fetchInternalJson<ChartApiPayload>(
+      `/api/stocks/${request.ticker}/chart?range=${request.timeframe}${chartRefreshParam}`
+    ),
+    fetchInternalJson<NewsApiPayload>(
+      `/api/stocks/${request.ticker}/news${refreshParam}`
+    ),
   ]);
 
   return {
@@ -387,6 +397,55 @@ function createAIWordingRouteResponse(
   };
 }
 
+function createEvidenceHash(inputs: WhyMovingInputs) {
+  return stableHash({
+    ticker: inputs.ticker,
+    timeframe: inputs.timeframe,
+    quote: inputs.quote
+      ? {
+          price: inputs.quote.price,
+          change: inputs.quote.change,
+          changePercent: inputs.quote.changePercent,
+          timestamp: inputs.quote.timestamp,
+        }
+      : null,
+    chartStatus: inputs.chartStatus,
+    chartFallback: inputs.chartFallback,
+    chartPoints: inputs.chartPoints.map((point) => ({
+      time: point.time,
+      close: point.close,
+      volume: point.volume,
+    })),
+    newsItems: inputs.newsItems.map((item) => ({
+      id: item.id,
+      headline: item.headline,
+      publishedAt: item.publishedAt,
+      tags: item.tags,
+      relevance: item.relevance,
+    })),
+  });
+}
+
+async function buildValidatedExplanation(inputs: WhyMovingInputs) {
+  const causes = scoreCauses(inputs);
+  const confidence = scoreConfidence(inputs, causes);
+  const response = buildWhyMovingResponse({ inputs, causes, confidence });
+  const validation = validateWhyMovingResponse(response);
+
+  if (!validation.isValid) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[ALQIS explain] Explanation validation failed", {
+        warnings: validation.warnings,
+        response,
+      });
+    }
+
+    throw new Error("Explanation response failed validation.");
+  }
+
+  return response;
+}
+
 export async function POST(request: Request) {
   const parsedRequest = await parseRequestBody(request);
 
@@ -405,30 +464,59 @@ export async function POST(request: Request) {
   }
 
   const inputs = await getWhyMovingInputs(parsedRequest);
-  const causes = scoreCauses(inputs);
-  const confidence = scoreConfidence(inputs, causes);
-  const response = buildWhyMovingResponse({ inputs, causes, confidence });
-  const validation = validateWhyMovingResponse(response);
+  const evidenceHash = createEvidenceHash(inputs);
+  const explainKey = explanationCacheKey(
+    parsedRequest.ticker,
+    parsedRequest.timeframe,
+    evidenceHash
+  );
+  let response: WhyMovingResponse;
+  let explanationMeta: Awaited<
+    ReturnType<typeof withCache<WhyMovingResponse>>
+  >["meta"];
 
-  if (!validation.isValid) {
-    if (process.env.NODE_ENV === "development") {
-      console.error("[ALQIS explain] Explanation validation failed", {
-        warnings: validation.warnings,
-        response,
-      });
-    }
-
+  try {
+    const cachedExplanation = await withCache(
+      explainKey,
+      CACHE_TTL.explanation,
+      () => buildValidatedExplanation(inputs),
+      { forceRefresh: parsedRequest.forceRefresh }
+    );
+    response = cachedExplanation.data;
+    explanationMeta = cachedExplanation.meta;
+  } catch (error) {
     return NextResponse.json(
       {
-        error: "Explanation response failed validation.",
-        warnings: validation.warnings,
+        error:
+          error instanceof Error
+            ? error.message
+            : "Explanation response failed validation.",
       },
       { status: 500 }
     );
   }
 
   if (!parsedRequest.useAIWording) {
-    return NextResponse.json<WhyMovingResponse>(response);
+    return NextResponse.json({
+      ...response,
+      ...explanationMeta,
+    });
+  }
+
+  const wordingCacheKey = `${explainKey}:wording:${
+    process.env.AI_WORDING_PROVIDER ?? "structured"
+  }`;
+
+  if (!parsedRequest.forceRefresh) {
+    const cachedRouteResponse =
+      await getCache<AIWordingRouteResponse>(wordingCacheKey);
+
+    if (cachedRouteResponse) {
+      return NextResponse.json({
+        ...cachedRouteResponse,
+        cacheStatus: "hit",
+      });
+    }
   }
 
   const aiWordingResult = await getAIWordingResponse({
@@ -436,13 +524,20 @@ export async function POST(request: Request) {
     structuredExplanation: response,
   });
 
-  return NextResponse.json<AIWordingRouteResponse>(
-    createAIWordingRouteResponse(
-      response,
-      aiWordingResult.aiWordingStatus,
-      aiWordingResult.aiWording,
-      aiWordingResult.aiWordingProvider,
-      aiWordingResult.aiWordingFailureReason
-    )
+  const routeResponse = createAIWordingRouteResponse(
+    response,
+    aiWordingResult.aiWordingStatus,
+    aiWordingResult.aiWording,
+    aiWordingResult.aiWordingProvider,
+    aiWordingResult.aiWordingFailureReason
   );
+
+  if (routeResponse.aiWordingStatus === "ok") {
+    await setCache(wordingCacheKey, routeResponse, CACHE_TTL.explanation);
+  }
+
+  return NextResponse.json({
+    ...routeResponse,
+    ...explanationMeta,
+  });
 }

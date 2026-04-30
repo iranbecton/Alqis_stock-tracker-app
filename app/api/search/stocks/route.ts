@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { withCache } from "@/lib/cache";
+import { searchCacheKey } from "@/lib/cache/keys";
+import { CACHE_TTL } from "@/lib/cache/ttl";
 import { searchFinnhubSymbols } from "@/lib/market-data/finnhub";
 import { normalizeTicker } from "@/lib/market-data/validation";
 import { stockUniverse } from "@/lib/stocks/stock-universe";
@@ -31,15 +34,38 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim() ?? "";
+  const forceRefresh = searchParams.get("refresh") === "true";
 
   if (!query) {
     return NextResponse.json({
       results: getLocalResults("").slice(0, MAX_RESULTS),
       providerStatus: "fallback",
+      cacheStatus: "unavailable",
     });
   }
 
+  const { data, meta } = await withCache(
+    searchCacheKey(query),
+    CACHE_TTL.search,
+    () => searchStocks(query),
+    { forceRefresh }
+  );
+
+  return NextResponse.json({
+    ...data,
+    ...meta,
+  });
+}
+
+async function searchStocks(query: string): Promise<SearchResponse> {
   try {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[ALQIS search] Provider fetch after cache miss", {
+        provider: "finnhub",
+        query,
+      });
+    }
+
     const finnhubResults = dedupeResults(
       (await searchFinnhubSymbols(query))
         .map((item): SearchResult => ({
@@ -54,16 +80,16 @@ export async function GET(request: Request) {
     ).slice(0, MAX_RESULTS);
 
     if (finnhubResults.length) {
-      return NextResponse.json({
+      return {
         results: finnhubResults,
         providerStatus: "ok",
-      });
+      };
     }
 
-    return NextResponse.json({
+    return {
       results: getLocalResults(query).slice(0, MAX_RESULTS),
       providerStatus: "fallback",
-    });
+    };
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
       console.error("[ALQIS search] Finnhub symbol search failed", {
@@ -72,12 +98,17 @@ export async function GET(request: Request) {
       });
     }
 
-    return NextResponse.json({
+    return {
       results: getLocalResults(query).slice(0, MAX_RESULTS),
       providerStatus: "fallback",
-    });
+    };
   }
 }
+
+type SearchResponse = {
+  results: SearchResult[];
+  providerStatus: "ok" | "fallback" | "error";
+};
 
 function getLocalResults(query: string): SearchResult[] {
   const normalizedQuery = query.trim().toUpperCase();

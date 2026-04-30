@@ -48,6 +48,7 @@ export type WhyMovingRequest = {
   ticker: string;
   timeframe: ChartRange;
   useAIWording?: boolean;
+  forceRefresh?: boolean;
 };
 
 export type WhyMovingResponse = {
