@@ -8,6 +8,7 @@ import {
   Mail,
   ShieldCheck,
 } from "lucide-react";
+import { AlqisLogo } from "@/components/brand/alqis-logo";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,11 +36,8 @@ export function AuthPanel({
       <div className="mx-auto grid min-h-dvh w-full max-w-[88rem] gap-5 px-4 py-4 sm:px-8 sm:py-6 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-center lg:gap-12 lg:px-10">
         <section className="flex min-h-0 flex-col justify-between gap-8 py-3 sm:min-h-[42vh] sm:py-6 lg:min-h-[34rem]">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-lg)] border border-accent-ai/16 bg-[color-mix(in_srgb,var(--accent-ai)_14%,transparent)] text-sm font-semibold tracking-[0.2em] text-accent-ai">
-              A
-            </div>
+            <AlqisLogo variant="lockup" tone="dark" size="md" priority />
             <div>
-              <p className="section-kicker">ALQIS</p>
               <p className="text-body-sm text-ink-muted">Market intelligence</p>
             </div>
           </div>

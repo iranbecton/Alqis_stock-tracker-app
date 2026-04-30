@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, Newspaper, Radar, Scale, TrendingUp } from "lucide-react";
 import { SparklineChart } from "@/components/alqis/price-line-chart";
+import { AlqisLogo } from "@/components/brand/alqis-logo";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -1370,11 +1371,8 @@ function TopBar() {
     <header className="relative z-10 border-b border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_97%,var(--surface)_3%)_0%,color-mix(in_srgb,var(--background)_88%,transparent)_100%)] shadow-[0_10px_30px_rgba(2,6,10,0.12)]">
       <PageContainer className="flex flex-wrap items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
         <div className="flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-lg)] border border-accent-ai/16 bg-[color-mix(in_srgb,var(--accent-ai)_14%,transparent)] text-sm font-semibold tracking-[0.2em] text-accent-ai">
-            A
-          </div>
+          <AlqisLogo variant="lockup" tone="dark" size="sm" priority />
           <div>
-            <p className="section-kicker">ALQIS</p>
             <p className="text-body-sm text-ink-muted">Market intelligence screen</p>
           </div>
         </div>

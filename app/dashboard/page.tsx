@@ -7,6 +7,7 @@ import {
   LogOut,
   Sparkles,
 } from "lucide-react";
+import { AlqisLogo } from "@/components/brand/alqis-logo";
 import { TickerSearch } from "@/components/stocks/ticker-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -56,11 +57,8 @@ export default async function DashboardPage() {
       <header className="border-b border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_97%,var(--surface)_3%)_0%,color-mix(in_srgb,var(--background)_88%,transparent)_100%)] backdrop-blur-xl">
         <PageContainer className="flex flex-wrap items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-[var(--radius-lg)] border border-accent-ai/16 bg-[color-mix(in_srgb,var(--accent-ai)_14%,transparent)] text-sm font-semibold tracking-[0.2em] text-accent-ai">
-              A
-            </div>
+            <AlqisLogo variant="lockup" tone="dark" size="sm" priority />
             <div>
-              <p className="section-kicker">ALQIS</p>
               <p className="text-body-sm text-ink-muted">Market intelligence workspace</p>
             </div>
           </div>
