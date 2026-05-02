@@ -29,6 +29,10 @@ import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { evaluateStockDataHealth } from "@/lib/stocks/stock-data-health";
 import {
+  type StockExplanationRow,
+  toExplanationHistoryItem,
+} from "@/lib/explanations/types";
+import {
   type DemoStock,
   demoStocks,
   getDemoStockBySymbol,
@@ -66,10 +70,11 @@ export default async function StockPage({ params }: StockPageProps) {
     return <TickerNotFound ticker={ticker} />;
   }
 
-  const [marketData, explanation, isWatchlisted] = await Promise.all([
+  const [marketData, explanation, isWatchlisted, recentReads] = await Promise.all([
     getStockMarketData(symbol),
     getWhyMovingExplanation(symbol, "1D"),
     getWatchlistStatus(supabase, user.id, symbol),
+    getTickerRecentReads(supabase, user.id, symbol),
   ]);
   const demoStock = getDemoStockBySymbol(symbol);
   const stock =
@@ -91,6 +96,7 @@ export default async function StockPage({ params }: StockPageProps) {
       aiWordingProvider={explanation?.aiWordingProvider}
       aiWordingFailureReason={explanation?.aiWordingFailureReason}
       isWatchlisted={isWatchlisted}
+      recentReads={recentReads}
     />
   );
 }
@@ -365,6 +371,35 @@ async function getWatchlistStatus(
   }
 
   return Boolean(data);
+}
+
+async function getTickerRecentReads(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string,
+  ticker: string
+) {
+  const { data, error } = await supabase
+    .from("stock_explanations")
+    .select(
+      "id,ticker,company_name,timeframe,summary,confidence_score,confidence_band,confidence_label,source_count,key_factors,counterevidence,generated_at,created_at"
+    )
+    .eq("user_id", userId)
+    .eq("ticker", ticker)
+    .order("created_at", { ascending: false })
+    .limit(3);
+
+  if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[ALQIS explanations] Ticker history load failed", {
+        ticker,
+        error,
+      });
+    }
+
+    return [];
+  }
+
+  return ((data ?? []) as StockExplanationRow[]).map(toExplanationHistoryItem);
 }
 
 function getProviderMessage(providerState: StockDetailMarketData["providerState"]) {

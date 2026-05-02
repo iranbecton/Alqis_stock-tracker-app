@@ -8,6 +8,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { AlqisLogo } from "@/components/brand/alqis-logo";
+import { RecentReadsSection } from "@/components/explanations/recent-reads-section";
 import { TickerSearch } from "@/components/stocks/ticker-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,10 @@ import {
 import { PageContainer } from "@/components/ui/layout";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import {
+  type StockExplanationRow,
+  toExplanationHistoryItem,
+} from "@/lib/explanations/types";
 import { demoStocks } from "@/lib/stocks/demo-stocks";
 import { enrichWatchlistItems } from "@/lib/watchlist/intelligence";
 import type { WatchlistApiItem } from "@/lib/watchlist/types";
@@ -51,6 +56,7 @@ export default async function DashboardPage() {
   const watchlistItems = watchlistError
     ? []
     : await enrichWatchlistItems(savedWatchlistItems);
+  const recentReads = await getDashboardRecentReads(supabase, user.id);
 
   return (
     <main className="min-h-dvh bg-[linear-gradient(180deg,var(--background)_0%,#050b0f_100%)]">
@@ -102,6 +108,8 @@ export default async function DashboardPage() {
             initialItems={watchlistItems}
             initialError={watchlistError}
           />
+
+          <RecentReadsSection items={recentReads} />
 
           <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.42fr)]">
             <div className="space-y-4">
@@ -210,6 +218,32 @@ async function getDashboardWatchlist(
       createdAt: item.created_at,
     })),
   };
+}
+
+async function getDashboardRecentReads(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  userId: string
+) {
+  const { data, error } = await supabase
+    .from("stock_explanations")
+    .select(
+      "id,ticker,company_name,timeframe,summary,confidence_score,confidence_band,confidence_label,source_count,key_factors,counterevidence,generated_at,created_at"
+    )
+    .eq("user_id", userId)
+    .order("created_at", { ascending: false })
+    .limit(6);
+
+  if (error) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("[ALQIS explanations] Dashboard history load failed", {
+        error,
+      });
+    }
+
+    return [];
+  }
+
+  return ((data ?? []) as StockExplanationRow[]).map(toExplanationHistoryItem);
 }
 
 function DashboardPlaceholder({

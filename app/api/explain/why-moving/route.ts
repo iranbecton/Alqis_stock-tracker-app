@@ -34,11 +34,13 @@ import { validateAIWordingOutput } from "@/lib/ai/wording/validate";
 import { getCache, setCache, withCache } from "@/lib/cache";
 import { explanationCacheKey, stableHash } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
+import { saveExplanationHistory } from "@/lib/explanations/save-explanation";
 import {
   isValidTicker,
   normalizeTicker,
   parseChartRange,
 } from "@/lib/market-data/validation";
+import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -463,6 +465,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid ticker symbol." }, { status: 400 });
   }
 
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
   const inputs = await getWhyMovingInputs(parsedRequest);
   const evidenceHash = createEvidenceHash(inputs);
   const explainKey = explanationCacheKey(
@@ -496,10 +503,20 @@ export async function POST(request: Request) {
     );
   }
 
+  const historyResult = await saveExplanationHistory({
+    supabase,
+    user,
+    explanation: response,
+    inputs,
+    explanationHash: evidenceHash,
+  });
+
   if (!parsedRequest.useAIWording) {
     return NextResponse.json({
       ...response,
       ...explanationMeta,
+      savedExplanationId: historyResult.savedExplanationId,
+      explanationHistoryStatus: historyResult.status,
     });
   }
 
@@ -515,6 +532,8 @@ export async function POST(request: Request) {
       return NextResponse.json({
         ...cachedRouteResponse,
         cacheStatus: "hit",
+        savedExplanationId: historyResult.savedExplanationId,
+        explanationHistoryStatus: historyResult.status,
       });
     }
   }
@@ -539,5 +558,7 @@ export async function POST(request: Request) {
   return NextResponse.json({
     ...routeResponse,
     ...explanationMeta,
+    savedExplanationId: historyResult.savedExplanationId,
+    explanationHistoryStatus: historyResult.status,
   });
 }

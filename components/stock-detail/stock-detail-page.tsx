@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AlertTriangle, Newspaper, Radar, Scale, TrendingUp } from "lucide-react";
 import { SparklineChart } from "@/components/alqis/price-line-chart";
 import { AlqisLogo } from "@/components/brand/alqis-logo";
+import { RecentReadsSection } from "@/components/explanations/recent-reads-section";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -32,6 +33,7 @@ import type {
 } from "@/lib/ai/providers/types";
 import type { DemoStock } from "@/lib/stocks/demo-stocks";
 import { getDemoStockBySymbol } from "@/lib/stocks/demo-stocks";
+import type { ExplanationHistoryItem } from "@/lib/explanations/types";
 import type { StockDataHealth } from "@/lib/stocks/stock-data-health";
 import { StockChartCard } from "./stock-chart-card";
 import { StockHeroHeader } from "./stock-hero-header";
@@ -98,6 +100,7 @@ type StockDetailPageProps = {
   aiWordingProvider?: SupportedAIWordingProvider;
   aiWordingFailureReason?: AIWordingFailureReason;
   isWatchlisted?: boolean;
+  recentReads?: ExplanationHistoryItem[];
 };
 
 export function StockDetailPage({
@@ -109,6 +112,7 @@ export function StockDetailPage({
   aiWordingProvider,
   aiWordingFailureReason,
   isWatchlisted = false,
+  recentReads = [],
 }: StockDetailPageProps) {
   const data = stock
     ? createStockDetailData(
@@ -182,6 +186,15 @@ export function StockDetailPage({
               description="Metrics, news, scenario balance, and peer read-through stay evidence-led so the lower half feels like one ALQIS surface rather than a stack of widgets."
               className="gap-3"
             />
+
+            {recentReads.length ? (
+              <RecentReadsSection
+                items={recentReads}
+                title={`Recent reads for ${data.company.symbol}`}
+                description="Past ALQIS reads are saved history, not the current live market read."
+                compact
+              />
+            ) : null}
 
             <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
               <KeyMetricsCard data={data} />
