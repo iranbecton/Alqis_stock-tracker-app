@@ -26,6 +26,10 @@ export function searchCacheKey(query: string) {
   return `search:${query.trim().toLowerCase()}`;
 }
 
+export function marketBriefCacheKey(userId: string, dateKey: string) {
+  return `market-brief:user:${userId}:${dateKey}`;
+}
+
 export function stableHash(value: unknown) {
   return createHash("sha256")
     .update(stableStringify(value))

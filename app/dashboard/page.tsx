@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { AlqisLogo } from "@/components/brand/alqis-logo";
 import { RecentReadsSection } from "@/components/explanations/recent-reads-section";
+import { DailyBriefCard } from "@/components/market/daily-brief-card";
 import { TickerSearch } from "@/components/stocks/ticker-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -108,6 +109,8 @@ export default async function DashboardPage() {
             initialItems={watchlistItems}
             initialError={watchlistError}
           />
+
+          <DailyBriefCard />
 
           <RecentReadsSection items={recentReads} />
 
