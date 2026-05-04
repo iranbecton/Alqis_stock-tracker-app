@@ -5,6 +5,7 @@ import { CalendarDays, RefreshCw } from "lucide-react";
 import { ExplainThis } from "@/components/education/explain-this";
 import type { CacheStatus } from "@/lib/cache";
 import type { DailyMarketBrief } from "@/lib/market/brief";
+import type { BriefFocus } from "@/lib/preferences/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -23,7 +24,7 @@ type DailyBriefResponse = DailyMarketBrief & {
   error?: string;
 };
 
-export function DailyBriefCard() {
+export function DailyBriefCard({ briefFocus = "balanced" }: { briefFocus?: BriefFocus }) {
   const [brief, setBrief] = useState<DailyBriefResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,7 +82,7 @@ export function DailyBriefCard() {
             <CardTitle>{brief?.headline ?? "Preparing today's market context."}</CardTitle>
             <CardDescription>
               {brief
-                ? `Generated ${formatBriefTime(brief.generatedAt)}`
+                ? `Generated ${formatBriefTime(brief.generatedAt)}. Focus: ${formatFocusLabel(briefFocus)}.`
                 : "ALQIS is checking your saved names and available market data."}
             </CardDescription>
           </div>
@@ -264,4 +265,9 @@ function formatBriefTime(value: string) {
 
 function formatPercent(value: number) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+}
+
+function formatFocusLabel(value: BriefFocus) {
+  if (value === "market_context") return "Market context";
+  return value.charAt(0).toUpperCase() + value.slice(1);
 }

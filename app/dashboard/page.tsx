@@ -10,6 +10,7 @@ import {
 import { AlqisLogo } from "@/components/brand/alqis-logo";
 import { RecentReadsSection } from "@/components/explanations/recent-reads-section";
 import { DailyBriefCard } from "@/components/market/daily-brief-card";
+import { PreferencesPanel } from "@/components/preferences/preferences-panel";
 import { TickerSearch } from "@/components/stocks/ticker-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ import {
 import { PageContainer } from "@/components/ui/layout";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { getUserPreferences } from "@/lib/preferences/get-user-preferences";
 import {
   type StockExplanationRow,
   toExplanationHistoryItem,
@@ -58,6 +60,8 @@ export default async function DashboardPage() {
     ? []
     : await enrichWatchlistItems(savedWatchlistItems);
   const recentReads = await getDashboardRecentReads(supabase, user.id);
+  const preferences = await getUserPreferences(supabase, user.id);
+  const popularReads = getPreferredMarketReads(preferences.defaultTicker);
 
   return (
     <main className="min-h-dvh bg-[linear-gradient(180deg,var(--background)_0%,#050b0f_100%)]">
@@ -102,6 +106,9 @@ export default async function DashboardPage() {
               <p className="mt-1 break-words text-body-sm text-ink-muted">
                 {demoStocks.map((stock) => stock.symbol).join(" / ")}
               </p>
+              <p className="mt-2 text-body-sm text-accent-secondary">
+                Default read: {preferences.defaultTicker}
+              </p>
             </div>
           </div>
 
@@ -110,7 +117,9 @@ export default async function DashboardPage() {
             initialError={watchlistError}
           />
 
-          <DailyBriefCard />
+          <DailyBriefCard briefFocus={preferences.briefFocus} />
+
+          <PreferencesPanel initialPreferences={preferences} />
 
           <RecentReadsSection items={recentReads} />
 
@@ -145,7 +154,7 @@ export default async function DashboardPage() {
               </CardHeader>
               <CardContent>
                 <div className="grid gap-3 lg:grid-cols-2">
-                  {demoStocks.slice(0, 4).map((stock) => (
+                  {popularReads.slice(0, 4).map((stock) => (
                     <Link
                       key={stock.symbol}
                       href={`/stocks/${stock.symbol}`}
@@ -169,6 +178,11 @@ export default async function DashboardPage() {
                       <div className="mt-4 flex items-start gap-2 text-body-sm text-ink-subtle">
                         <LineChart className="h-4 w-4 text-accent-secondary" />
                         {stock.headline}
+                        {stock.symbol === preferences.defaultTicker ? (
+                          <span className="ml-2 rounded-full border border-accent-secondary/16 bg-[color-mix(in_srgb,var(--accent-secondary)_10%,transparent)] px-2 py-0.5 text-[0.68rem] uppercase tracking-[0.14em] text-accent-secondary">
+                            Default
+                          </span>
+                        ) : null}
                       </div>
                     </Link>
                   ))}
@@ -181,6 +195,7 @@ export default async function DashboardPage() {
               label="Search a stock"
               title="Build your watchlist from market reads."
               description="Use search or popular reads to open a ticker, then save it into your personal ALQIS watchlist."
+              showEducationTips={preferences.showEducationTips}
             />
           </div>
         </section>
@@ -254,12 +269,14 @@ function DashboardPlaceholder({
   label,
   title,
   description,
+  showEducationTips = true,
   tone = "default",
 }: {
   icon: ReactNode;
   label: string;
   title: string;
   description: string;
+  showEducationTips?: boolean;
   tone?: "default" | "ai";
 }) {
   return (
@@ -281,7 +298,7 @@ function DashboardPlaceholder({
       </CardHeader>
       <CardContent>
         <p className="text-body text-ink-muted">{description}</p>
-        {label === "Search a stock" ? (
+        {label === "Search a stock" && showEducationTips ? (
           <Button asChild variant="quiet" size="sm" className="mt-4 min-h-10">
             <Link href="/learn">Open encyclopedia</Link>
           </Button>
@@ -289,4 +306,12 @@ function DashboardPlaceholder({
       </CardContent>
     </Card>
   );
+}
+
+function getPreferredMarketReads(defaultTicker: string) {
+  const normalizedDefault = defaultTicker.toUpperCase();
+  const preferred = demoStocks.find((stock) => stock.symbol === normalizedDefault);
+  const remaining = demoStocks.filter((stock) => stock.symbol !== normalizedDefault);
+
+  return preferred ? [preferred, ...remaining] : demoStocks;
 }

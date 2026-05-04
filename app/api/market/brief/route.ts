@@ -12,6 +12,7 @@ import {
 } from "@/lib/market-data/finnhub";
 import type { CompanyProfile, StockQuote } from "@/lib/market-data/types";
 import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
+import { getUserPreferences } from "@/lib/preferences/get-user-preferences";
 import { createClient } from "@/lib/supabase/server";
 import { stockUniverse } from "@/lib/stocks/stock-universe";
 import type { WatchlistApiItem } from "@/lib/watchlist/types";
@@ -46,7 +47,8 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const forceRefresh = searchParams.get("refresh") === "true";
   const dateKey = new Date().toISOString().slice(0, 10);
-  const key = marketBriefCacheKey(user.id, dateKey);
+  const preferences = await getUserPreferences(supabase, user.id);
+  const key = marketBriefCacheKey(user.id, dateKey, preferences.briefFocus);
 
   const { data, meta } = await withCache(
     key,
@@ -62,6 +64,7 @@ export async function GET(request: Request) {
       return buildDailyMarketBrief({
         items: briefInputs,
         isPersonalized,
+        briefFocus: preferences.briefFocus,
       });
     },
     { forceRefresh }

@@ -1,4 +1,5 @@
 import type { StockQuote } from "@/lib/market-data/types";
+import type { BriefFocus } from "@/lib/preferences/types";
 
 export type DailyBriefStatus = "ok" | "limited" | "unavailable";
 
@@ -40,9 +41,11 @@ export type DailyBriefInputItem = {
 export function buildDailyMarketBrief({
   items,
   isPersonalized,
+  briefFocus = "balanced",
 }: {
   items: DailyBriefInputItem[];
   isPersonalized: boolean;
+  briefFocus?: BriefFocus;
 }): DailyMarketBrief {
   const generatedAt = new Date().toISOString();
   const usableItems = items.filter(hasUsableQuote);
@@ -72,6 +75,7 @@ export function buildDailyMarketBrief({
       strongestPositive,
       strongestNegative,
       isPersonalized,
+      briefFocus,
     }),
     summary: createSummary({
       status,
@@ -79,14 +83,16 @@ export function buildDailyMarketBrief({
       strongestPositive,
       strongestNegative,
       isPersonalized,
+      briefFocus,
     }),
     watchlistMovers: sortedMovers.slice(0, 4).map(toBriefMover),
-    marketThemes: createMarketThemes(usableItems),
+    marketThemes: createMarketThemes(usableItems, briefFocus),
     whatToWatch: createWhatToWatch({
       usableItems,
       strongestPositive,
       strongestNegative,
       isPersonalized,
+      briefFocus,
     }),
     dataNotes,
   };
@@ -114,18 +120,28 @@ function createHeadline({
   strongestPositive,
   strongestNegative,
   isPersonalized,
+  briefFocus,
 }: {
   status: DailyBriefStatus;
   strongestPositive?: DailyBriefInputItem & { quote: StockQuote };
   strongestNegative?: DailyBriefInputItem & { quote: StockQuote };
   isPersonalized: boolean;
+  briefFocus: BriefFocus;
 }) {
   if (status === "unavailable") {
     return "Market brief unavailable while provider data is limited.";
   }
 
   if (!isPersonalized) {
-    return "Today’s brief is using curated market reads until your watchlist grows.";
+    return "Today's brief is using curated market reads until your watchlist grows.";
+  }
+
+  if (briefFocus === "education") {
+    return "Today's brief explains the context behind your saved market reads.";
+  }
+
+  if (briefFocus === "market_context") {
+    return "Today's brief is emphasizing shared market and sector context.";
   }
 
   if (
@@ -150,12 +166,14 @@ function createSummary({
   strongestPositive,
   strongestNegative,
   isPersonalized,
+  briefFocus,
 }: {
   status: DailyBriefStatus;
   usableCount: number;
   strongestPositive?: DailyBriefInputItem & { quote: StockQuote };
   strongestNegative?: DailyBriefInputItem & { quote: StockQuote };
   isPersonalized: boolean;
+  briefFocus: BriefFocus;
 }) {
   if (status === "unavailable") {
     return "ALQIS could not assemble enough live quote data for a reliable daily brief. Refresh later or open individual stock reads for more context.";
@@ -169,7 +187,7 @@ function createSummary({
     ? `${strongestNegative.ticker} moved ${formatPercent(strongestNegative.quote.changePercent)}`
     : "pressure is limited";
 
-  return `ALQIS found ${usableCount} usable quote snapshots across ${scope}. ${positiveText}, while ${negativeText}. Treat this as context, not a recommendation.`;
+  return `ALQIS found ${usableCount} usable quote snapshots across ${scope}. ${positiveText}, while ${negativeText}. ${getBriefFocusSummary(briefFocus)}`;
 }
 
 function toBriefMover(
@@ -190,7 +208,8 @@ function toBriefMover(
 }
 
 function createMarketThemes(
-  items: Array<DailyBriefInputItem & { quote: StockQuote }>
+  items: Array<DailyBriefInputItem & { quote: StockQuote }>,
+  briefFocus: BriefFocus
 ): DailyBriefSectionItem[] {
   const sectorCounts = items.reduce<Record<string, number>>((counts, item) => {
     const sector = item.sector ?? "Unclassified";
@@ -209,6 +228,14 @@ function createMarketThemes(
     themes.push({
       label: `${sector} concentration`,
       detail: `${count} saved names share this category, so their moves may reflect common context.`,
+    });
+  }
+
+  if (briefFocus === "education") {
+    themes.push({
+      label: "Reading note",
+      detail:
+        "Daily move compares the latest quote with previous close; it can differ from a chart-window move.",
     });
   }
 
@@ -232,11 +259,13 @@ function createWhatToWatch({
   strongestPositive,
   strongestNegative,
   isPersonalized,
+  briefFocus,
 }: {
   usableItems: Array<DailyBriefInputItem & { quote: StockQuote }>;
   strongestPositive?: DailyBriefInputItem & { quote: StockQuote };
   strongestNegative?: DailyBriefInputItem & { quote: StockQuote };
   isPersonalized: boolean;
+  briefFocus: BriefFocus;
 }): DailyBriefSectionItem[] {
   const items: DailyBriefSectionItem[] = [];
 
@@ -249,7 +278,10 @@ function createWhatToWatch({
 
   if (strongestPositive) {
     items.push({
-      label: `${strongestPositive.ticker} follow-through`,
+      label:
+        briefFocus === "watchlist"
+          ? `${strongestPositive.ticker} watchlist context`
+          : `${strongestPositive.ticker} follow-through`,
       detail: "Monitor whether the move remains supported by fresh quote and news context.",
     });
   }
@@ -269,6 +301,22 @@ function createWhatToWatch({
   }
 
   return items.slice(0, 3);
+}
+
+function getBriefFocusSummary(briefFocus: BriefFocus) {
+  if (briefFocus === "watchlist") {
+    return "The brief is weighted toward saved ticker movement.";
+  }
+
+  if (briefFocus === "market_context") {
+    return "The brief is weighted toward shared sector and market context.";
+  }
+
+  if (briefFocus === "education") {
+    return "The brief includes plain-English context for interpreting the data.";
+  }
+
+  return "Treat this as context for review.";
 }
 
 function createDataNotes({

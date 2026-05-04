@@ -27,6 +27,7 @@ import type {
 import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
+import { getUserPreferences } from "@/lib/preferences/get-user-preferences";
 import { evaluateStockDataHealth } from "@/lib/stocks/stock-data-health";
 import {
   type StockExplanationRow,
@@ -70,11 +71,12 @@ export default async function StockPage({ params }: StockPageProps) {
     return <TickerNotFound ticker={ticker} />;
   }
 
-  const [marketData, explanation, isWatchlisted, recentReads] = await Promise.all([
+  const [marketData, explanation, isWatchlisted, recentReads, preferences] = await Promise.all([
     getStockMarketData(symbol),
     getWhyMovingExplanation(symbol, "1D"),
     getWatchlistStatus(supabase, user.id, symbol),
     getTickerRecentReads(supabase, user.id, symbol),
+    getUserPreferences(supabase, user.id),
   ]);
   const demoStock = getDemoStockBySymbol(symbol);
   const stock =
@@ -97,6 +99,7 @@ export default async function StockPage({ params }: StockPageProps) {
       aiWordingFailureReason={explanation?.aiWordingFailureReason}
       isWatchlisted={isWatchlisted}
       recentReads={recentReads}
+      defaultChartRange={preferences.defaultChartRange}
     />
   );
 }

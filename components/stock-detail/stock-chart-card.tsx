@@ -16,10 +16,14 @@ const ranges: StockChartRange[] = ["1d", "5d", "1m"];
 
 type StockChartCardProps = {
   data?: typeof stockDetailDemoData;
+  defaultRange?: StockChartRange;
 };
 
-export function StockChartCard({ data = stockDetailDemoData }: StockChartCardProps) {
-  const [activeRange, setActiveRange] = useState<StockChartRange>("1d");
+export function StockChartCard({
+  data = stockDetailDemoData,
+  defaultRange = "1d",
+}: StockChartCardProps) {
+  const [activeRange, setActiveRange] = useState<StockChartRange>(defaultRange);
   const [selectedInsights, setSelectedInsights] = useState<
     Partial<Record<StockChartRange, ChartMarkerInsight | null>>
   >({});

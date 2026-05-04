@@ -102,6 +102,7 @@ type StockDetailPageProps = {
   aiWordingFailureReason?: AIWordingFailureReason;
   isWatchlisted?: boolean;
   recentReads?: ExplanationHistoryItem[];
+  defaultChartRange?: "1D" | "5D" | "1M";
 };
 
 export function StockDetailPage({
@@ -114,6 +115,7 @@ export function StockDetailPage({
   aiWordingFailureReason,
   isWatchlisted = false,
   recentReads = [],
+  defaultChartRange = "1D",
 }: StockDetailPageProps) {
   const data = stock
     ? createStockDetailData(
@@ -170,7 +172,10 @@ export function StockDetailPage({
             <div className="grid gap-5 xl:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] xl:gap-6">
               <StockWhyCard data={data} />
               <div className="space-y-5">
-                <StockChartCard data={data} />
+                <StockChartCard
+                  data={data}
+                  defaultRange={toStockDetailChartRange(defaultChartRange)}
+                />
               </div>
             </div>
 
@@ -450,6 +455,12 @@ function formatHealthStatus(label: string, status: string) {
   if (label === "News") return "No recent news context found";
 
   return `${label} ${status}`;
+}
+
+function toStockDetailChartRange(range: "1D" | "5D" | "1M"): StockDetailChartRange {
+  if (range === "5D") return "5d";
+  if (range === "1M") return "1m";
+  return "1d";
 }
 
 function createStructuredExplanation(
