@@ -1,4 +1,4 @@
-"use client";
+
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -7,10 +7,9 @@ import { Button } from "@/components/ui/button";
 
 type WatchlistRemoveButtonProps = {
   ticker: string;
-  onRemoved?: (ticker: string) => void;
 };
 
-export function WatchlistRemoveButton({ ticker, onRemoved }: WatchlistRemoveButtonProps) {
+export function WatchlistRemoveButton({ ticker }: WatchlistRemoveButtonProps) {
   const router = useRouter();
   const [isPending, setIsPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -37,7 +36,11 @@ export function WatchlistRemoveButton({ ticker, onRemoved }: WatchlistRemoveButt
         throw new Error(json.error ?? "Unable to remove ticker.");
       }
 
-      onRemoved?.(ticker);
+      window.dispatchEvent(
+        new CustomEvent("alqis:watchlist-removed", {
+          detail: { ticker },
+        })
+      );
       router.refresh();
     } catch (requestError) {
       setError(

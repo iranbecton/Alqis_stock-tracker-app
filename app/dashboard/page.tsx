@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   BrainCircuit,
+  Activity,
   LineChart,
   LogOut,
   Sparkles,
@@ -75,10 +76,20 @@ export default async function DashboardPage() {
           </div>
 
           <form action={signOutAction}>
-            <Button type="submit" variant="quiet" size="md" className="h-11">
-              <LogOut className="h-4 w-4" />
-              Logout
-            </Button>
+            <div className="flex flex-wrap items-center gap-2">
+              {process.env.NODE_ENV !== "production" ? (
+                <Button asChild variant="quiet" size="md" className="h-11">
+                  <Link href="/diagnostics">
+                    <Activity className="h-4 w-4" />
+                    Diagnostics
+                  </Link>
+                </Button>
+              ) : null}
+              <Button type="submit" variant="quiet" size="md" className="h-11">
+                <LogOut className="h-4 w-4" />
+                Logout
+              </Button>
+            </div>
           </form>
         </PageContainer>
       </header>

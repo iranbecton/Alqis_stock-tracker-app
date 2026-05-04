@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bookmark, ExternalLink, RefreshCw } from "lucide-react";
 import { ExplainThis } from "@/components/education/explain-this";
@@ -38,6 +38,25 @@ export function WatchlistSection({
   const allDataUnavailable =
     items.length > 0 && items.every((item) => item.dataState === "Data unavailable");
 
+  useEffect(() => {
+    function handleRemoved(event: Event) {
+      const detail = (event as CustomEvent<{ ticker?: string }>).detail;
+      const ticker = detail?.ticker;
+
+      if (!ticker) {
+        return;
+      }
+
+      setItems((currentItems) =>
+        currentItems.filter((item) => item.ticker !== ticker)
+      );
+    }
+
+    window.addEventListener("alqis:watchlist-removed", handleRemoved);
+    return () =>
+      window.removeEventListener("alqis:watchlist-removed", handleRemoved);
+  }, []);
+
   async function refreshWatchlist() {
     if (isRefreshing) {
       return;
@@ -69,12 +88,6 @@ export function WatchlistSection({
     } finally {
       setIsRefreshing(false);
     }
-  }
-
-  function removeTicker(ticker: string) {
-    setItems((currentItems) =>
-      currentItems.filter((item) => item.ticker !== ticker)
-    );
   }
 
   return (
@@ -132,7 +145,6 @@ export function WatchlistSection({
               <WatchlistIntelligenceCard
                 key={item.id}
                 item={item}
-                onRemoved={removeTicker}
               />
             ))}
           </div>
@@ -152,10 +164,8 @@ export function WatchlistSection({
 
 function WatchlistIntelligenceCard({
   item,
-  onRemoved,
 }: {
   item: WatchlistIntelligenceItem;
-  onRemoved: (ticker: string) => void;
 }) {
   return (
     <article className="group min-w-0 rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_84%,var(--surface)_16%)] p-4 transition duration-[var(--duration-fast)] hover:border-accent-secondary/35 hover:bg-surface-elevated">
@@ -216,7 +226,7 @@ function WatchlistIntelligenceCard({
               <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </Button>
-          <WatchlistRemoveButton ticker={item.ticker} onRemoved={onRemoved} />
+          <WatchlistRemoveButton ticker={item.ticker} />
         </div>
       </div>
     </article>

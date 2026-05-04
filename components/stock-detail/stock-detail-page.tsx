@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { AlertTriangle, Newspaper, Radar, Scale, TrendingUp } from "lucide-react";
-import { SparklineChart } from "@/components/alqis/price-line-chart";
+import { SparklineChart } from "@/components/alqis/sparkline-chart";
 import { AlqisLogo } from "@/components/brand/alqis-logo";
 import { ExplainThis } from "@/components/education/explain-this";
 import { RecentReadsSection } from "@/components/explanations/recent-reads-section";

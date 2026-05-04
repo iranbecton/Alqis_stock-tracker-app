@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { cn } from "@/lib/utils";
 import type { ChartPoint as StockDetailChartPoint } from "@/lib/stock-detail-demo-data";

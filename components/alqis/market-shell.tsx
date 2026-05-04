@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ConfidenceDot } from "@/components/ui/confidence-dot";
 import { Delta } from "@/components/ui/delta";
 import { alqisDemoData, type RadarSignal, type ToneTag } from "@/lib/alqis-demo-data";
-import { SparklineChart } from "./price-line-chart";
+import { SparklineChart } from "./sparkline-chart";
 import { WhyItMovingCard } from "./why-it-moving-card";
 
 const toneClasses: Record<ToneTag["tone"], string> = {

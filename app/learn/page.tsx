@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft, BookOpen } from "lucide-react";
 import { AlqisLogo } from "@/components/brand/alqis-logo";
@@ -6,10 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PageContainer } from "@/components/ui/layout";
 
-export const metadata = {
-  title: "Investment Encyclopedia",
-  description:
-    "Plain-English ALQIS education for common market intelligence terms.",
+export const metadata: Metadata = {
+  title: "ALQIS Investment Encyclopedia",
+  description: "Plain-English market terms used across ALQIS reads.",
 };
 
 export default function LearnPage() {
