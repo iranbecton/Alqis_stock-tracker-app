@@ -515,8 +515,8 @@ function TickerNotFound({ ticker }: { ticker: string }) {
         <EmptyState
           variant="panel"
           icon={<SearchX className="h-5 w-5" />}
-          title={`${normalizedTicker || "Ticker"} could not be resolved.`}
-          description="ALQIS could not load live provider data for this ticker, and there is no local demo fallback for it. Try one of the demo tickers while provider coverage is still being hardened."
+          title="Market data could not be loaded."
+          description={`ALQIS could not build a market read for ${normalizedTicker || "this ticker"} yet. Try another ticker or return to the dashboard.`}
           action={
             <div className="grid w-full gap-3 sm:flex sm:flex-wrap">
               <Button asChild variant="primary" size="md" className="w-full sm:w-auto">
@@ -529,7 +529,7 @@ function TickerNotFound({ ticker }: { ticker: string }) {
               ))}
             </div>
           }
-          meta={`Available: ${demoStocks.map((stock) => stock.symbol).join(", ")}`}
+          meta="ALQIS explanations are informational only and do not constitute investment advice."
           className="mx-auto max-w-2xl border-accent-ai/12 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_86%,var(--accent-ai)_8%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-secondary)_4%)_100%)]"
         />
       </PageContainer>

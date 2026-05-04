@@ -34,6 +34,7 @@ import { validateAIWordingOutput } from "@/lib/ai/wording/validate";
 import { getCache, setCache, withCache } from "@/lib/cache";
 import { explanationCacheKey, stableHash } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
+import { logServerError, normalizedApiError } from "@/lib/errors/api-error";
 import { saveExplanationHistory } from "@/lib/explanations/save-explanation";
 import {
   isValidTicker,
@@ -452,17 +453,18 @@ export async function POST(request: Request) {
   const parsedRequest = await parseRequestBody(request);
 
   if (!parsedRequest) {
-    return NextResponse.json(
-      {
-        error:
-          "Request body must include ticker and timeframe. Supported timeframes: 1D, 5D, 1M.",
-      },
-      { status: 400 }
-    );
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message:
+        "Request body must include ticker and timeframe. Supported timeframes: 1D, 5D, 1M.",
+    });
   }
 
   if (!isValidTicker(parsedRequest.ticker)) {
-    return NextResponse.json({ error: "Invalid ticker symbol." }, { status: 400 });
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Invalid ticker symbol.",
+    });
   }
 
   const supabase = await createClient();
@@ -492,15 +494,16 @@ export async function POST(request: Request) {
     response = cachedExplanation.data;
     explanationMeta = cachedExplanation.meta;
   } catch (error) {
-    return NextResponse.json(
-      {
-        error:
-          error instanceof Error
-            ? error.message
-            : "Explanation response failed validation.",
-      },
-      { status: 500 }
-    );
+    logServerError("[ALQIS explain] Structured explanation failed", {
+      ticker: parsedRequest.ticker,
+      timeframe: parsedRequest.timeframe,
+      reason: error instanceof Error ? error.message : "Unknown explanation error",
+    });
+
+    return normalizedApiError({
+      code: "INTERNAL_ERROR",
+      message: "Explanation could not be generated. Please retry.",
+    });
   }
 
   const historyResult = await saveExplanationHistory({

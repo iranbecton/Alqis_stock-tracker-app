@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withCache } from "@/lib/cache";
 import { newsCacheKey } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
+import { logServerError, normalizedApiError } from "@/lib/errors/api-error";
 import { getFinnhubCompanyProfile } from "@/lib/market-data/finnhub";
 import { filterCompanyNews, getFinnhubCompanyNews } from "@/lib/news/finnhub";
 import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
@@ -19,10 +20,10 @@ export async function GET(request: Request, context: RouteContext) {
   const forceRefresh = searchParams.get("refresh") === "true";
 
   if (!isValidTicker(symbol)) {
-    return NextResponse.json(
-      { error: "Invalid ticker symbol." },
-      { status: 400 }
-    );
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Invalid ticker symbol.",
+    });
   }
 
   try {
@@ -58,12 +59,17 @@ export async function GET(request: Request, context: RouteContext) {
       ...meta,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Unable to fetch news data.";
+    logServerError("[ALQIS news] Provider request failed", {
+      provider: "finnhub",
+      ticker: symbol,
+      reason: error instanceof Error ? error.message : "Unknown news error",
+    });
 
     return NextResponse.json(
       {
-        error: message,
+        error: "News provider unavailable.",
+        code: "PROVIDER_UNAVAILABLE",
+        retryable: true,
         symbol,
         items: [],
       },
