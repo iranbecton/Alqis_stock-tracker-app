@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { Delta } from "@/components/ui/delta";
+import { ExplainThis } from "@/components/education/explain-this";
 import { WatchlistToggle } from "@/components/watchlist/watchlist-toggle";
 import type { stockDetailDemoData } from "@/lib/stock-detail-demo-data";
 
@@ -80,7 +81,10 @@ export function StockHeroHeader({
 
           <div className="flex flex-col gap-4 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between">
             <div className="min-w-0">
-              <p className="section-kicker">Current price</p>
+              <p className="section-kicker inline-flex items-center gap-1.5">
+                Current price
+                <ExplainThis termId="current-price" compact />
+              </p>
               <div className="mt-1.5 flex flex-wrap items-end gap-3">
                 <span className="text-[2.55rem] font-semibold tracking-tight text-ink sm:text-5xl" data-numeric>
                   {company.price}
@@ -96,6 +100,9 @@ export function StockHeroHeader({
                 {company.quoteStatusDetail ??
                   "Price is connected to the current market snapshot."}
               </p>
+              <div className="mt-2">
+                <ExplainThis termId="daily-move" label="Daily move" />
+              </div>
             </div>
             <div className="w-fit rounded-[var(--radius-md)] border border-border/60 bg-surface/35 px-3 py-2 text-left min-[430px]:text-right">
               <p className="section-kicker">Status</p>
@@ -111,7 +118,12 @@ export function StockHeroHeader({
                 key={stat.label}
                 className="rounded-[var(--radius-md)] border border-border/60 bg-[color-mix(in_srgb,var(--surface-elevated)_86%,var(--surface-alt)_14%)] px-3 py-3"
               >
-                <p className="section-kicker">{stat.label}</p>
+                <p className="section-kicker inline-flex items-center gap-1.5">
+                  {stat.label}
+                  {getQuoteStatTermId(stat.label) ? (
+                    <ExplainThis termId={getQuoteStatTermId(stat.label) ?? ""} compact />
+                  ) : null}
+                </p>
                 <p className="mt-1.5 text-sm font-medium text-ink" data-numeric>
                   {stat.value}
                 </p>
@@ -127,7 +139,10 @@ export function StockHeroHeader({
               </p>
             </div>
             <div className="rounded-[var(--radius-md)] border border-border/60 bg-surface/45 px-3 py-3">
-              <p className="section-kicker">Delay</p>
+              <p className="section-kicker inline-flex items-center gap-1.5">
+                Delay
+                <ExplainThis termId="market-delayed" compact />
+              </p>
               <p className="mt-1.5 font-medium text-ink">
                 {company.marketStatus.toLowerCase().includes("delayed")
                   ? "Delayed"
@@ -139,4 +154,26 @@ export function StockHeroHeader({
       </div>
     </header>
   );
+}
+
+function getQuoteStatTermId(label: string) {
+  const normalized = label.toLowerCase();
+
+  if (normalized.includes("prev")) {
+    return "previous-close";
+  }
+
+  if (normalized === "open") {
+    return "open";
+  }
+
+  if (normalized === "high") {
+    return "high";
+  }
+
+  if (normalized === "low") {
+    return "low";
+  }
+
+  return null;
 }

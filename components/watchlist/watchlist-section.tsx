@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Bookmark, ExternalLink, RefreshCw } from "lucide-react";
+import { ExplainThis } from "@/components/education/explain-this";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -88,6 +89,7 @@ export function WatchlistSection({
             <CardEyebrow>
               <Bookmark className="h-3.5 w-3.5" />
               Your Watchlist
+              <ExplainThis termId="watchlist" compact />
             </CardEyebrow>
             <CardTitle>Saved market reads.</CardTitle>
             <CardDescription>

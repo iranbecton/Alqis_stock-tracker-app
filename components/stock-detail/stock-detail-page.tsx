@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AlertTriangle, Newspaper, Radar, Scale, TrendingUp } from "lucide-react";
 import { SparklineChart } from "@/components/alqis/price-line-chart";
 import { AlqisLogo } from "@/components/brand/alqis-logo";
+import { ExplainThis } from "@/components/education/explain-this";
 import { RecentReadsSection } from "@/components/explanations/recent-reads-section";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -382,25 +383,60 @@ function DataHealthStrip({ health }: { health: StockDataHealth }) {
         </div>
 
         <div className="flex flex-wrap gap-2">
-          <HealthBadge label={formatHealthStatus("Quote", health.quoteStatus)} ok={health.quoteStatus === "ok"} />
-          <HealthBadge label={formatHealthStatus("Chart", health.chartStatus)} ok={health.chartStatus === "ok"} />
-          <HealthBadge label={formatHealthStatus("News", health.newsStatus)} ok={health.newsStatus === "ok"} />
+          <HealthBadge
+            label={formatHealthStatus("Quote", health.quoteStatus)}
+            ok={health.quoteStatus === "ok"}
+            termId={getHealthTermId(health.quoteStatus)}
+          />
+          <HealthBadge
+            label={formatHealthStatus("Chart", health.chartStatus)}
+            ok={health.chartStatus === "ok"}
+            termId={getHealthTermId(health.chartStatus)}
+          />
+          <HealthBadge
+            label={formatHealthStatus("News", health.newsStatus)}
+            ok={health.newsStatus === "ok"}
+            termId={getHealthTermId(health.newsStatus)}
+          />
         </div>
       </div>
     </section>
   );
 }
 
-function HealthBadge({ label, ok }: { label: string; ok: boolean }) {
+function HealthBadge({
+  label,
+  ok,
+  termId,
+}: {
+  label: string;
+  ok: boolean;
+  termId?: string | null;
+}) {
   return (
-    <Badge
-      variant={ok ? "outline" : "ai"}
-      size="sm"
-      className="normal-case tracking-normal"
-    >
-      {label}
-    </Badge>
+    <span className="inline-flex items-center gap-1.5">
+      <Badge
+        variant={ok ? "outline" : "ai"}
+        size="sm"
+        className="normal-case tracking-normal"
+      >
+        {label}
+      </Badge>
+      {termId ? <ExplainThis termId={termId} compact /> : null}
+    </span>
   );
+}
+
+function getHealthTermId(status: string) {
+  if (status === "fallback" || status === "partial") {
+    return "partial-data";
+  }
+
+  if (status === "limited" || status === "missing" || status === "error") {
+    return "data-limited";
+  }
+
+  return null;
 }
 
 function formatHealthStatus(label: string, status: string) {

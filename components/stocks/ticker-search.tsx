@@ -3,6 +3,7 @@
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowRight, Search } from "lucide-react";
+import { ExplainThis } from "@/components/education/explain-this";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { SearchInput } from "@/components/ui/input";
@@ -91,10 +92,13 @@ export function TickerSearch() {
     <div className="rounded-[var(--radius-xl)] border border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-secondary)_8%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-ai)_5%)_100%)] p-4 shadow-elevation-2 sm:rounded-[var(--radius-2xl)] sm:p-5">
       <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
         <div className="space-y-2">
-          <Badge variant="ai" size="md" className="w-fit">
-            <Search className="h-3.5 w-3.5" />
-            Stock intelligence search
-          </Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="ai" size="md" className="w-fit">
+              <Search className="h-3.5 w-3.5" />
+              Stock intelligence search
+            </Badge>
+            <ExplainThis termId="stock-intelligence-search" compact />
+          </div>
           <div>
             <h2 className="font-serif text-[1.75rem] leading-tight tracking-tight text-ink sm:text-3xl">
               Start with a ticker.

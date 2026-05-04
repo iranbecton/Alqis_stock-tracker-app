@@ -281,6 +281,11 @@ function DashboardPlaceholder({
       </CardHeader>
       <CardContent>
         <p className="text-body text-ink-muted">{description}</p>
+        {label === "Search a stock" ? (
+          <Button asChild variant="quiet" size="sm" className="mt-4 min-h-10">
+            <Link href="/learn">Open encyclopedia</Link>
+          </Button>
+        ) : null}
       </CardContent>
     </Card>
   );

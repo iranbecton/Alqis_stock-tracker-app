@@ -4,6 +4,7 @@ import { useState } from "react";
 import { BarChart3, BrainCircuit } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ChartFrame } from "@/components/ui/chart-frame";
+import { ExplainThis } from "@/components/education/explain-this";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { stockDetailDemoData, type StockChartRange } from "@/lib/stock-detail-demo-data";
 import {
@@ -46,7 +47,12 @@ export function StockChartCard({ data = stockDetailDemoData }: StockChartCardPro
     >
       <ChartFrame
         className="border-accent-secondary/10"
-        title="Proof of move"
+        title={
+          <span className="inline-flex items-center gap-2">
+            Proof of move
+            <ExplainThis termId="proof-of-move" compact />
+          </span>
+        }
         subtitle="If the explanation is right, price action and breadth should keep validating it."
         actions={
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
@@ -172,7 +178,12 @@ export function StockChartCard({ data = stockDetailDemoData }: StockChartCardPro
                     key={stat.label}
                     className="rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_84%,var(--surface)_16%)] px-4 py-3"
                   >
-                    <p className="section-kicker text-ink-muted">{stat.label}</p>
+                    <p className="section-kicker inline-flex items-center gap-1.5 text-ink-muted">
+                      {stat.label}
+                      {getChartStatTermId(stat.label) ? (
+                        <ExplainThis termId={getChartStatTermId(stat.label) ?? ""} compact />
+                      ) : null}
+                    </p>
                     <p className="mt-2 text-base font-medium text-ink">{stat.value}</p>
                   </div>
                 ))}
@@ -191,4 +202,18 @@ export function StockChartCard({ data = stockDetailDemoData }: StockChartCardPro
       </ChartFrame>
     </Tabs>
   );
+}
+
+function getChartStatTermId(label: string) {
+  const normalized = label.toLowerCase();
+
+  if (normalized.includes("move") || normalized.includes("window")) {
+    return "chart-window-move";
+  }
+
+  if (normalized.includes("source")) {
+    return "proof-of-move";
+  }
+
+  return null;
 }

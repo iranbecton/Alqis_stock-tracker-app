@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Clock3, ExternalLink } from "lucide-react";
+import { ExplainThis } from "@/components/education/explain-this";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -36,6 +37,7 @@ export function RecentReadsSection({
         <CardEyebrow>
           <Clock3 className="h-3.5 w-3.5" />
           Explanation history
+          <ExplainThis termId="recent-alqis-reads" compact />
         </CardEyebrow>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>

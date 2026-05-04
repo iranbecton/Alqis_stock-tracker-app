@@ -1,4 +1,5 @@
 import { BrainCircuit, Sparkles } from "lucide-react";
+import { ExplainThis } from "@/components/education/explain-this";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { ConfidenceDot } from "@/components/ui/confidence-dot";
@@ -49,7 +50,10 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
           </div>
 
           <div className="rounded-[var(--radius-md)] border border-accent-ai/12 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-ai)_18%)] px-4 py-3">
-            <span className="mb-2 block section-kicker">ALQIS confidence</span>
+            <span className="mb-2 inline-flex section-kicker items-center gap-1.5">
+              ALQIS confidence
+              <ExplainThis termId="confidence-score" compact />
+            </span>
             <ConfidenceDot band={explanation.confidence} />
           </div>
         </div>
@@ -138,7 +142,10 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
 
         <section className="space-y-3 rounded-[var(--radius-lg)] border border-border/60 bg-[color-mix(in_srgb,var(--surface-elevated)_80%,var(--background)_20%)] p-4">
           <div>
-            <p className="section-kicker">Could weaken the read</p>
+            <p className="section-kicker inline-flex items-center gap-1.5">
+              Could weaken the read
+              <ExplainThis termId="counterevidence" compact />
+            </p>
             <p className="mt-1 text-sm font-medium text-ink">
               Evidence that may limit confidence in the current explanation.
             </p>

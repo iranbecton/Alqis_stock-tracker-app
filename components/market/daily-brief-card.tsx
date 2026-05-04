@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { CalendarDays, RefreshCw } from "lucide-react";
+import { ExplainThis } from "@/components/education/explain-this";
 import type { CacheStatus } from "@/lib/cache";
 import type { DailyMarketBrief } from "@/lib/market/brief";
 import { Badge } from "@/components/ui/badge";
@@ -75,8 +76,9 @@ export function DailyBriefCard() {
             <CardEyebrow>
               <CalendarDays className="h-3.5 w-3.5" />
               Daily Market Brief
+              <ExplainThis termId="daily-market-brief" compact />
             </CardEyebrow>
-            <CardTitle>{brief?.headline ?? "Preparing today’s market context."}</CardTitle>
+            <CardTitle>{brief?.headline ?? "Preparing today's market context."}</CardTitle>
             <CardDescription>
               {brief
                 ? `Generated ${formatBriefTime(brief.generatedAt)}`
