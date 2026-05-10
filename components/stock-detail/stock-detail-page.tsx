@@ -135,8 +135,8 @@ export function StockDetailPage({
     <main className="min-h-dvh">
       <TopBar />
 
-      <PageContainer>
-        <PageShell className="gap-5 pt-2 pb-7 lg:gap-7">
+      <PageContainer className="max-w-[90rem]">
+        <PageShell className="gap-5 pt-2 pb-7 lg:gap-6">
           <PageSection className="gap-4 rounded-[var(--radius-2xl)] border border-border/60 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface)_84%,var(--surface-alt)_16%)_0%,color-mix(in_srgb,var(--background)_90%,var(--surface)_10%)_100%)] p-4 shadow-elevation-2 sm:p-5 lg:gap-4 lg:p-5">
             <StockHeroHeader
               company={data.company}
@@ -149,9 +149,10 @@ export function StockDetailPage({
             />
 
             <div className="space-y-1">
-              <p className="section-kicker">Primary read</p>
-              <p className="max-w-[52rem] text-body-sm text-ink-muted">
-                ALQIS leads with an explanation, then shows the price evidence directly beside it so the narrative and proof can be scanned in one pass.
+              <p className="section-kicker text-accent-ai">Explanation first / proof second</p>
+              <p className="max-w-[58rem] text-body text-ink-muted">
+                ALQIS starts with why this moved, then tests the read against
+                price action, news context, and counterevidence in one pass.
               </p>
             </div>
 
@@ -169,7 +170,7 @@ export function StockDetailPage({
               </div>
             ) : null}
 
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,0.86fr)_minmax(0,1.14fr)] xl:gap-6">
+            <div className="grid gap-5 xl:grid-cols-[minmax(26rem,0.98fr)_minmax(0,1.02fr)] xl:items-start xl:gap-6">
               <StockWhyCard data={data} />
               <div className="space-y-5">
                 <StockChartCard
@@ -187,9 +188,9 @@ export function StockDetailPage({
 
           <PageSection className="rounded-[var(--radius-2xl)] border border-border/50 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface)_72%,var(--surface-elevated)_28%)_0%,color-mix(in_srgb,var(--background)_86%,var(--surface)_14%)_100%)] p-4 pt-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_18px_48px_rgba(2,6,10,0.14)] sm:p-5">
             <SectionHeader
-              eyebrow="Supporting intelligence"
-              title="Everything else the explanation needs to hold up."
-              description="Metrics, news, scenario balance, and peer read-through stay evidence-led so the lower half feels like one ALQIS surface rather than a stack of widgets."
+              eyebrow="Data third"
+              title="Supporting intelligence for the read."
+              description="Metrics, news, evidence balance, and peer read-through stay organized around whether the ALQIS Read holds up."
               className="gap-3"
             />
 
@@ -1429,16 +1430,16 @@ function formatChartLabel(value: string, range: MarketChartRange) {
 function TopBar() {
   return (
     <header className="relative z-10 border-b border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_97%,var(--surface)_3%)_0%,color-mix(in_srgb,var(--background)_88%,transparent)_100%)] shadow-[0_10px_30px_rgba(2,6,10,0.12)]">
-      <PageContainer className="flex flex-wrap items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
+      <PageContainer className="flex max-w-[90rem] flex-wrap items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
         <div className="flex items-center gap-3">
           <AlqisLogo variant="lockup" tone="dark" size="sm" priority />
           <div>
-            <p className="text-body-sm text-ink-muted">Market intelligence screen</p>
+            <p className="text-body-sm text-ink-muted">Stock intelligence screen</p>
           </div>
         </div>
 
         <Badge variant="ai" size="md" className="hidden sm:inline-flex">
-          Why Is It Moving?
+          ALQIS Read
         </Badge>
       </PageContainer>
     </header>
@@ -1452,7 +1453,7 @@ function KeyMetricsCard({ data }: { data: StockDetailData }) {
         <CardEyebrow>Key metrics</CardEyebrow>
         <CardTitle>Context around the move.</CardTitle>
         <CardDescription>
-          ALQIS keeps these inputs tight so they clarify the explanation instead of diluting it.
+          Core data points that clarify the read without turning the page into a terminal.
         </CardDescription>
       </CardHeader>
 
@@ -1481,8 +1482,8 @@ function SignalBalanceCard({ data }: { data: StockDetailData }) {
   return (
     <Card variant="subtle" radius="xl" className="h-full border-border/72">
       <CardHeader>
-        <CardEyebrow>ALQIS scenario balance</CardEyebrow>
-        <CardTitle>What still supports the thesis, and what could break it.</CardTitle>
+        <CardEyebrow>Evidence balance</CardEyebrow>
+        <CardTitle>What supports the read, and what could weaken it.</CardTitle>
         <CardDescription>
           This is not a sentiment widget. It is the current weight of evidence on both sides.
         </CardDescription>
@@ -1491,13 +1492,13 @@ function SignalBalanceCard({ data }: { data: StockDetailData }) {
       <CardContent className="space-y-5">
         <div className="grid gap-4 lg:grid-cols-2">
           <SignalColumn
-            title="Bullish"
+            title="Supports read"
             tone="gain"
             icon={<TrendingUp className="h-4 w-4" />}
             items={signals.bullish}
           />
           <SignalColumn
-            title="Bearish"
+            title="Challenges read"
             tone="loss"
             icon={<Scale className="h-4 w-4" />}
             items={signals.bearish}
@@ -1511,7 +1512,7 @@ function SignalBalanceCard({ data }: { data: StockDetailData }) {
               <p className="mt-2 text-base font-medium text-ink">{signals.sentimentBand}</p>
             </div>
             <Badge variant="ai" size="md">
-              {signals.targetPrice}
+              Structured evidence
             </Badge>
           </div>
           <p className="mt-3 text-body text-ink">{signals.alqisRead}</p>
@@ -1549,7 +1550,7 @@ function SignalColumn({
         {items.map((item) => (
           <li key={item.title} className="space-y-1">
             <p className="text-sm font-medium text-ink">{item.title}</p>
-            <p className="text-body-sm text-ink-muted">{item.detail}</p>
+            <p className="text-body-sm leading-6 text-ink-muted">{item.detail}</p>
           </li>
         ))}
       </ul>
@@ -1562,7 +1563,7 @@ function TopNewsCard({ data }: { data: StockDetailData }) {
     <Card variant="subtle" radius="xl" className="h-full border-border/72">
       <CardHeader>
         <CardEyebrow>ALQIS news filter</CardEyebrow>
-        <CardTitle>News that changes the explanation.</CardTitle>
+        <CardTitle>News that changes the read.</CardTitle>
         <CardDescription>
           Each item is paired with why it matters to the current price narrative.
         </CardDescription>
@@ -1585,10 +1586,10 @@ function TopNewsCard({ data }: { data: StockDetailData }) {
             <h3 className="mt-3 text-lg font-medium tracking-tight text-ink">
               {item.headline}
             </h3>
-            <p className="mt-2 text-body text-ink-muted">{item.summary}</p>
+            <p className="mt-2 text-body leading-7 text-ink-muted">{item.summary}</p>
             <div className="mt-3 rounded-[var(--radius-md)] border border-border/60 bg-surface/45 px-3 py-3">
               <p className="section-kicker">Why it matters</p>
-              <p className="mt-2 text-body-sm text-ink">{item.whyItMatters}</p>
+              <p className="mt-2 text-body-sm leading-6 text-ink">{item.whyItMatters}</p>
             </div>
           </article>
         ))}
@@ -1602,7 +1603,7 @@ function PeerComparisonCard({ data }: { data: StockDetailData }) {
     <Card variant="subtle" radius="xl" className="h-full border-border/72">
       <CardHeader>
         <CardEyebrow>Peer read-through</CardEyebrow>
-        <CardTitle>How the rest of the stack is confirming the read.</CardTitle>
+        <CardTitle>How peers test the read.</CardTitle>
         <CardDescription>
           ALQIS uses peers to test whether today&apos;s move is isolated or supported across the stack.
         </CardDescription>
@@ -1622,7 +1623,7 @@ function PeerComparisonCard({ data }: { data: StockDetailData }) {
                   </span>
                   <span className="break-words text-body-sm text-ink-muted">{peer.name}</span>
                 </div>
-                <p className="mt-2 text-body-sm text-ink-muted">{peer.note}</p>
+                <p className="mt-2 text-body-sm leading-6 text-ink-muted">{peer.note}</p>
               </div>
 
               <div className="shrink-0 text-left min-[430px]:text-right">
