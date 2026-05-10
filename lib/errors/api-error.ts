@@ -11,8 +11,9 @@ export type ApiErrorCode =
 
 export type NormalizedApiError = {
   error: string;
-  code: ApiErrorCode;
+  code: string;
   retryable: boolean;
+  resetAt?: string;
 };
 
 const defaultMessages: Record<ApiErrorCode, string> = {
@@ -35,6 +36,16 @@ const statusByCode: Record<ApiErrorCode, number> = {
   INTERNAL_ERROR: 500,
 };
 
+const publicCodeByCode: Record<ApiErrorCode, string> = {
+  AUTH_REQUIRED: "auth_required",
+  VALIDATION_ERROR: "validation_error",
+  NOT_FOUND: "not_found",
+  PROVIDER_UNAVAILABLE: "provider_unavailable",
+  RATE_LIMITED: "rate_limited",
+  DATABASE_UNAVAILABLE: "database_unavailable",
+  INTERNAL_ERROR: "internal_error",
+};
+
 export function safeErrorMessage(
   code: ApiErrorCode,
   fallback = defaultMessages[code]
@@ -46,19 +57,22 @@ export function normalizedApiError({
   code,
   message,
   status,
+  resetAt,
 }: {
   code: ApiErrorCode;
   message?: string;
   status?: number;
+  resetAt?: string;
 }) {
   const body: NormalizedApiError = {
     error: safeErrorMessage(code, message),
-    code,
+    code: publicCodeByCode[code],
     retryable:
       code === "PROVIDER_UNAVAILABLE" ||
       code === "RATE_LIMITED" ||
       code === "DATABASE_UNAVAILABLE" ||
       code === "INTERNAL_ERROR",
+    ...(resetAt ? { resetAt } : {}),
   };
 
   return NextResponse.json(body, {
@@ -83,4 +97,13 @@ export function logServerError(
   }
 
   console.error(label, context);
+}
+
+export function rateLimitedResponse(resetAt: string) {
+  return normalizedApiError({
+    code: "RATE_LIMITED",
+    message: "Too many requests. Please wait and try again.",
+    status: 429,
+    resetAt,
+  });
 }

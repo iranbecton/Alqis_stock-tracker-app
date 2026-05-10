@@ -6,7 +6,14 @@ import {
 import { quoteCacheKey } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
 import { withCache } from "@/lib/cache";
+import { normalizedApiError, rateLimitedResponse } from "@/lib/errors/api-error";
 import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
+import {
+  getRateLimitKey,
+  isRefreshRequest,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
 
 type RouteContext = {
   params: Promise<{
@@ -17,14 +24,25 @@ type RouteContext = {
 export async function GET(request: Request, context: RouteContext) {
   const { ticker } = await context.params;
   const symbol = normalizeTicker(ticker);
-  const { searchParams } = new URL(request.url);
-  const forceRefresh = searchParams.get("refresh") === "true";
+  const forceRefresh = isRefreshRequest(request);
+  const limit = await rateLimit(
+    getRateLimitKey(
+      request,
+      null,
+      forceRefresh ? "quote-refresh" : "quote"
+    ),
+    forceRefresh ? RATE_LIMITS.marketDataRefresh : RATE_LIMITS.marketData
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
+  }
 
   if (!isValidTicker(symbol)) {
-    return NextResponse.json(
-      { error: "Invalid ticker symbol." },
-      { status: 400 }
-    );
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Invalid ticker symbol.",
+    });
   }
 
   try {
@@ -70,6 +88,8 @@ export async function GET(request: Request, context: RouteContext) {
     return NextResponse.json(
       {
         error: "Quote provider unavailable.",
+        code: "provider_unavailable",
+        retryable: true,
         symbol,
       },
       { status: 502 }

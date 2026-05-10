@@ -57,7 +57,7 @@ export function StockChartCard({
             <ExplainThis termId="proof-of-move" compact />
           </span>
         }
-        subtitle="If the explanation is right, price action and breadth should keep validating it."
+        subtitle="Chart and evidence signals that test whether the explanation fits price action."
         actions={
           <div className="flex w-full flex-col gap-3 sm:w-auto sm:items-end">
             <div className="flex flex-wrap items-center gap-2">
@@ -90,11 +90,11 @@ export function StockChartCard({
           return (
             <TabsContent key={range} value={range} className="mt-0 space-y-5">
               <div className="space-y-2">
-                <div className="flex items-center gap-2 text-[0.88rem] leading-5 text-ink-muted">
+                <div className="flex items-center gap-2 text-body-sm leading-6 text-ink-muted">
                   <BarChart3 className="h-4 w-4" />
                   {chart.subtitle}
                 </div>
-                <div className="flex items-center gap-2 text-[0.86rem] leading-5 text-ink-muted">
+                <div className="flex items-center gap-2 text-body-sm leading-6 text-ink-muted">
                   <span className="h-1.5 w-1.5 rounded-full bg-accent-secondary" aria-hidden />
                   {isFallback
                     ? "Fallback structure is shown for layout only; it is not used as chart confirmation."
@@ -130,7 +130,7 @@ export function StockChartCard({
               <div className="rounded-[var(--radius-lg)] border border-accent-ai/10 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-ai)_5%)] px-4 py-3.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="section-kicker text-accent-ai">
-                    Proof-of-move read
+                    Proof of move
                   </p>
                   <Badge
                     variant={isFallback ? "outline" : "ai"}

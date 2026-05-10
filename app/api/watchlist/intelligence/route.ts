@@ -1,4 +1,11 @@
 import { NextResponse } from "next/server";
+import { normalizedApiError, rateLimitedResponse } from "@/lib/errors/api-error";
+import {
+  getRateLimitKey,
+  isRefreshRequest,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { enrichWatchlistItems } from "@/lib/watchlist/intelligence";
 import type { WatchlistApiItem } from "@/lib/watchlist/types";
@@ -14,11 +21,23 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    return normalizedApiError({ code: "AUTH_REQUIRED" });
   }
 
-  const { searchParams } = new URL(request.url);
-  const bypassCache = searchParams.get("refresh") === "1";
+  const bypassCache = isRefreshRequest(request);
+  const limit = await rateLimit(
+    getRateLimitKey(
+      request,
+      user.id,
+      bypassCache ? "watchlist-intelligence-refresh" : "watchlist-intelligence"
+    ),
+    bypassCache ? RATE_LIMITS.marketDataRefresh : RATE_LIMITS.userMutation
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
+  }
+
   const { data, error } = await supabase
     .from("watchlist_items")
     .select("id,ticker,company_name,created_at")
@@ -30,12 +49,11 @@ export async function GET(request: Request) {
       console.error("[ALQIS watchlist] Intelligence route load failed", { error });
     }
 
-    return NextResponse.json(
-      {
-        error: "Watchlist data unavailable. Your saved tickers are still preserved.",
-      },
-      { status: 500 }
-    );
+    return normalizedApiError({
+      code: "DATABASE_UNAVAILABLE",
+      message: "Watchlist data unavailable. Your saved tickers are still preserved.",
+      status: 500,
+    });
   }
 
   const savedItems: WatchlistApiItem[] = (data ?? []).map((item) => ({

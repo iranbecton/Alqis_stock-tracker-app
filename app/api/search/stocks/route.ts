@@ -2,8 +2,16 @@ import { NextResponse } from "next/server";
 import { withCache } from "@/lib/cache";
 import { searchCacheKey } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
+import { rateLimitedResponse, normalizedApiError } from "@/lib/errors/api-error";
 import { searchFinnhubSymbols } from "@/lib/market-data/finnhub";
 import { normalizeTicker } from "@/lib/market-data/validation";
+import {
+  getRateLimitKey,
+  isRefreshRequest,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
+import { validateSearchQuery } from "@/lib/security/validation";
 import { stockUniverse } from "@/lib/stocks/stock-universe";
 
 type SearchResult = {
@@ -33,8 +41,25 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const query = searchParams.get("q")?.trim() ?? "";
-  const forceRefresh = searchParams.get("refresh") === "true";
+  const validatedQuery = validateSearchQuery(searchParams.get("q"));
+  const forceRefresh = isRefreshRequest(request);
+  const limit = await rateLimit(
+    getRateLimitKey(request, null, forceRefresh ? "search-refresh" : "search"),
+    forceRefresh ? RATE_LIMITS.searchRefresh : RATE_LIMITS.search
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
+  }
+
+  if (!validatedQuery.ok) {
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: validatedQuery.error,
+    });
+  }
+
+  const query = validatedQuery.query;
 
   if (!query) {
     return NextResponse.json({

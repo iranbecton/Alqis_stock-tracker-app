@@ -2,10 +2,20 @@ import { NextResponse } from "next/server";
 import { withCache } from "@/lib/cache";
 import { newsCacheKey } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
-import { logServerError, normalizedApiError } from "@/lib/errors/api-error";
+import {
+  logServerError,
+  normalizedApiError,
+  rateLimitedResponse,
+} from "@/lib/errors/api-error";
 import { getFinnhubCompanyProfile } from "@/lib/market-data/finnhub";
 import { filterCompanyNews, getFinnhubCompanyNews } from "@/lib/news/finnhub";
 import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
+import {
+  getRateLimitKey,
+  isRefreshRequest,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
 
 type RouteContext = {
   params: Promise<{
@@ -16,8 +26,15 @@ type RouteContext = {
 export async function GET(request: Request, context: RouteContext) {
   const { ticker } = await context.params;
   const symbol = normalizeTicker(ticker);
-  const { searchParams } = new URL(request.url);
-  const forceRefresh = searchParams.get("refresh") === "true";
+  const forceRefresh = isRefreshRequest(request);
+  const limit = await rateLimit(
+    getRateLimitKey(request, null, forceRefresh ? "news-refresh" : "news"),
+    forceRefresh ? RATE_LIMITS.marketDataRefresh : RATE_LIMITS.marketData
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
+  }
 
   if (!isValidTicker(symbol)) {
     return normalizedApiError({

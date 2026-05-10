@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { normalizedApiError, rateLimitedResponse } from "@/lib/errors/api-error";
 import { getUserPreferences } from "@/lib/preferences/get-user-preferences";
 import { updateUserPreferences } from "@/lib/preferences/update-user-preferences";
 import {
@@ -8,6 +9,11 @@ import {
   normalizePreferenceTicker,
   type UserPreferencesUpdate,
 } from "@/lib/preferences/types";
+import {
+  getRateLimitKey,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -22,11 +28,20 @@ const allowedFields = new Set([
   "showEducationTips",
 ]);
 
-export async function GET() {
+export async function GET(request: Request) {
   const auth = await getAuthenticatedUser();
 
   if ("response" in auth) {
     return auth.response;
+  }
+
+  const limit = await rateLimit(
+    getRateLimitKey(request, auth.userId, "preferences"),
+    RATE_LIMITS.userMutation
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
   }
 
   const preferences = await getUserPreferences(auth.supabase, auth.userId);
@@ -41,18 +56,33 @@ export async function PATCH(request: Request) {
     return auth.response;
   }
 
+  const limit = await rateLimit(
+    getRateLimitKey(request, auth.userId, "preferences-update"),
+    RATE_LIMITS.userMutation
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
+  }
+
   let body: unknown;
 
   try {
     body = await request.json();
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Invalid JSON body.",
+    });
   }
 
   const validation = validatePreferencesUpdate(body);
 
   if (!validation.ok) {
-    return NextResponse.json({ error: validation.error }, { status: 400 });
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: validation.error,
+    });
   }
 
   try {
@@ -64,10 +94,12 @@ export async function PATCH(request: Request) {
 
     return NextResponse.json({ preferences });
   } catch {
-    return NextResponse.json(
-      { error: "Preferences unavailable. Try again after the database migration is applied." },
-      { status: 500 }
-    );
+    return normalizedApiError({
+      code: "DATABASE_UNAVAILABLE",
+      message:
+        "Preferences unavailable. Try again after the database migration is applied.",
+      status: 500,
+    });
   }
 }
 
@@ -80,10 +112,7 @@ async function getAuthenticatedUser() {
 
   if (error || !user) {
     return {
-      response: NextResponse.json(
-        { error: "Authentication required." },
-        { status: 401 }
-      ),
+      response: normalizedApiError({ code: "AUTH_REQUIRED" }),
     };
   }
 

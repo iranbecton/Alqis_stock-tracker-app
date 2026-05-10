@@ -34,13 +34,19 @@ import { validateAIWordingOutput } from "@/lib/ai/wording/validate";
 import { getCache, setCache, withCache } from "@/lib/cache";
 import { explanationCacheKey, stableHash } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
-import { logServerError, normalizedApiError } from "@/lib/errors/api-error";
-import { saveExplanationHistory } from "@/lib/explanations/save-explanation";
 import {
-  isValidTicker,
-  normalizeTicker,
-  parseChartRange,
-} from "@/lib/market-data/validation";
+  logServerError,
+  normalizedApiError,
+  rateLimitedResponse,
+} from "@/lib/errors/api-error";
+import { saveExplanationHistory } from "@/lib/explanations/save-explanation";
+import { isValidTicker } from "@/lib/market-data/validation";
+import {
+  getRateLimitKey,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
+import { validateExplainRequestBody } from "@/lib/security/validation";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -48,21 +54,13 @@ export const dynamic = "force-dynamic";
 
 async function parseRequestBody(request: Request): Promise<WhyMovingRequest | null> {
   try {
-    const body = (await request.json()) as Partial<WhyMovingRequest>;
-    const ticker = typeof body.ticker === "string" ? normalizeTicker(body.ticker) : "";
-    const timeframe =
-      typeof body.timeframe === "string" ? parseChartRange(body.timeframe) : null;
+    const validation = validateExplainRequestBody(await request.json());
 
-    if (!ticker || !timeframe) {
+    if (!validation.ok) {
       return null;
     }
 
-    return {
-      ticker,
-      timeframe,
-      useAIWording: body.useAIWording === true,
-      forceRefresh: body.forceRefresh === true,
-    };
+    return validation.value;
   } catch {
     return null;
   }
@@ -471,6 +469,18 @@ export async function POST(request: Request) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const limit = await rateLimit(
+    getRateLimitKey(
+      request,
+      user?.id,
+      parsedRequest.forceRefresh ? "explain-refresh" : "explain"
+    ),
+    parsedRequest.forceRefresh ? RATE_LIMITS.explainRefresh : RATE_LIMITS.explain
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
+  }
 
   const inputs = await getWhyMovingInputs(parsedRequest);
   const evidenceHash = createEvidenceHash(inputs);

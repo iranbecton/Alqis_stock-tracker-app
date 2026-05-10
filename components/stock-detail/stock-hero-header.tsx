@@ -30,8 +30,8 @@ export function StockHeroHeader({
   watchlist,
 }: StockHeroHeaderProps) {
   return (
-    <header className="grid gap-4 border-b border-border/60 pb-4 xl:grid-cols-[minmax(0,1fr)_23.5rem] xl:items-start xl:gap-6">
-      <div className="space-y-3.5">
+    <header className="grid gap-4 border-b border-border/60 pb-4 xl:grid-cols-[minmax(0,1fr)_24rem] xl:items-start xl:gap-6">
+      <div className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="live" size="md">
             {company.marketStatus}
@@ -45,12 +45,14 @@ export function StockHeroHeader({
           <span className="break-words text-body-sm text-ink-subtle">{company.statusDetail}</span>
         </div>
 
-        <div className="space-y-2">
+        <div className="space-y-2.5">
           <div>
             <p className="section-kicker">{company.symbol}</p>
-            <h1 className="text-page-title break-words font-serif text-ink">{company.name}</h1>
+            <h1 className="break-words font-serif text-[2.25rem] leading-[0.98] tracking-tight text-ink sm:text-[3.4rem] xl:text-[3.75rem]">
+              {company.name}
+            </h1>
           </div>
-          <p className="reading-width text-body text-ink-muted sm:text-body-lg">{company.oneLineSummary}</p>
+          <p className="max-w-[52rem] text-body leading-7 text-ink-muted">{company.oneLineSummary}</p>
 
           <div className="flex flex-wrap gap-x-5 gap-y-2 text-body-sm text-ink-subtle">
             {company.quickFacts.map((fact) => (
@@ -64,14 +66,14 @@ export function StockHeroHeader({
         </div>
       </div>
 
-      <div className="flex flex-col gap-2 xl:items-end">
+      <div className="flex flex-col gap-2.5 xl:items-end">
         <WatchlistToggle
           ticker={watchlist.ticker}
           companyName={watchlist.companyName}
           initialSaved={watchlist.initialSaved}
         />
 
-        <div className="w-full rounded-[var(--radius-xl)] border border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_86%,var(--accent-ai)_8%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-secondary)_6%)_100%)] px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_16px_38px_rgba(2,6,10,0.14)] sm:px-5 xl:w-[23rem]">
+        <div className="w-full rounded-[var(--radius-xl)] border border-accent-secondary/12 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_86%,var(--accent-ai)_7%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-secondary)_6%)_100%)] px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_16px_38px_rgba(2,6,10,0.14)] sm:px-5 xl:w-[24rem]">
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
             <p className="section-kicker text-accent-ai">Market snapshot</p>
             <span className="rounded-full border border-accent-secondary/14 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-secondary)_18%)] px-3 py-1.5 text-body-sm text-ink-subtle">
@@ -96,7 +98,7 @@ export function StockHeroHeader({
                   size="lg"
                 />
               </div>
-              <p className="mt-2 text-[0.86rem] leading-5 text-ink-muted">
+              <p className="mt-2 text-body-sm leading-6 text-ink-muted">
                 {company.quoteStatusDetail ??
                   "Price is connected to the current market snapshot."}
               </p>

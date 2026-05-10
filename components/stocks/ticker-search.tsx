@@ -163,7 +163,7 @@ export function TickerSearch() {
             </p>
           </div>
         ) : results.length > 0 ? (
-          <ul className="grid max-h-[22rem] gap-2 overflow-y-auto pr-1 sm:max-h-[28rem]">
+          <ul className="scrollbar-dark grid max-h-[22rem] gap-2 overflow-y-auto pr-1 sm:max-h-[28rem]">
             {results.map((result) => (
               <li key={`${result.source}-${result.ticker}`}>
                 <button

@@ -101,12 +101,13 @@ export function WatchlistSection({
           <div>
             <CardEyebrow>
               <Bookmark className="h-3.5 w-3.5" />
-              Your Watchlist
+              Watchlist Intelligence
               <ExplainThis termId="watchlist" compact />
             </CardEyebrow>
-            <CardTitle>Saved market reads.</CardTitle>
+            <CardTitle>Saved names, translated into reads.</CardTitle>
             <CardDescription>
-              Personal tickers you want ALQIS to keep close for explanation-led review.
+              Ticker cards combine price movement, data state, confidence, and
+              a one-line ALQIS read.
             </CardDescription>
           </div>
 
@@ -152,8 +153,8 @@ export function WatchlistSection({
           <EmptyState
             variant="compact"
             icon={<Bookmark className="h-5 w-5" />}
-            title="No saved tickers yet."
-            description="Search a stock and save it to start building your ALQIS watchlist."
+            title="Save tickers to build your first intelligence list."
+            description="ALQIS will track movement, context, and recent reads for names you follow."
             className="rounded-[var(--radius-lg)] border border-dashed border-border/70 bg-surface/45 px-5 py-6"
           />
         )}
@@ -215,7 +216,10 @@ function WatchlistIntelligenceCard({
             </Badge>
           </div>
           <p className="mt-4 overflow-hidden break-words text-body-sm leading-6 text-ink [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
-            {shortenQuickRead(item.quickRead)}
+            {item.providerStatus === "unavailable" ||
+            item.dataState === "Data unavailable"
+              ? "ALQIS could not verify a clear move yet."
+              : shortenQuickRead(item.quickRead)}
           </p>
         </Link>
 

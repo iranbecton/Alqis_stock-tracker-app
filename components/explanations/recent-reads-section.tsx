@@ -36,7 +36,7 @@ export function RecentReadsSection({
       <CardHeader>
         <CardEyebrow>
           <Clock3 className="h-3.5 w-3.5" />
-          Explanation history
+          Recent ALQIS Reads
           <ExplainThis termId="recent-alqis-reads" compact />
         </CardEyebrow>
         <CardTitle>{title}</CardTitle>
@@ -98,7 +98,7 @@ export function RecentReadsSection({
             variant="compact"
             icon={<Clock3 className="h-5 w-5" />}
             title="No saved reads yet."
-            description="Open a stock read to build your explanation history."
+            description="Recent ALQIS Reads will appear after you explain a stock move."
             className="rounded-[var(--radius-lg)] border border-dashed border-border/70 bg-surface/45 px-5 py-6"
           />
         )}

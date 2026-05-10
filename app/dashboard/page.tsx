@@ -1,14 +1,16 @@
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import type { ReactNode } from "react";
-import {
-  BrainCircuit,
-  Activity,
-  LineChart,
-  LogOut,
-  Sparkles,
-} from "lucide-react";
+import { Activity, BookOpen, LogOut, Search } from "lucide-react";
 import { AlqisLogo } from "@/components/brand/alqis-logo";
+import {
+  AITaggedNewsCard,
+  EarningsThisWeekCard,
+  SectorPulseCard,
+  TopMoversCard,
+} from "@/components/dashboard/market-intelligence-modules";
+import { MarketPulseRow } from "@/components/dashboard/market-pulse-row";
+import { SessionTabs } from "@/components/dashboard/session-tabs";
+import { TodayHero } from "@/components/dashboard/today-hero";
 import { RecentReadsSection } from "@/components/explanations/recent-reads-section";
 import { DailyBriefCard } from "@/components/market/daily-brief-card";
 import { PreferencesPanel } from "@/components/preferences/preferences-panel";
@@ -16,14 +18,6 @@ import { TickerSearch } from "@/components/stocks/ticker-search";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { WatchlistSection } from "@/components/watchlist/watchlist-section";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardEyebrow,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { PageContainer } from "@/components/ui/layout";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -67,152 +61,156 @@ export default async function DashboardPage() {
   return (
     <main className="min-h-dvh bg-[linear-gradient(180deg,var(--background)_0%,#050b0f_100%)]">
       <header className="border-b border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_97%,var(--surface)_3%)_0%,color-mix(in_srgb,var(--background)_88%,transparent)_100%)] backdrop-blur-xl">
-        <PageContainer className="flex flex-wrap items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
-          <div className="flex items-center gap-3">
+        <PageContainer className="flex max-w-[90rem] flex-wrap items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
+          <div className="flex flex-wrap items-center gap-4">
             <AlqisLogo variant="lockup" tone="dark" size="sm" priority />
-            <div>
-              <p className="text-body-sm text-ink-muted">Market intelligence workspace</p>
-            </div>
+            <nav
+              aria-label="Primary"
+              className="flex min-h-10 items-center gap-1 rounded-full border border-border/60 bg-surface/38 p-1"
+            >
+              <Link
+                href="/dashboard"
+                aria-current="page"
+                className="rounded-full bg-surface-elevated px-3 py-1.5 text-sm font-medium text-ink"
+              >
+                Today
+              </Link>
+              <Link
+                href="/learn"
+                className="rounded-full px-3 py-1.5 text-sm font-medium text-ink-muted transition hover:bg-surface/60 hover:text-ink"
+              >
+                Learn
+              </Link>
+            </nav>
           </div>
 
-          <form action={signOutAction}>
-            <div className="flex flex-wrap items-center gap-2">
-              {process.env.NODE_ENV !== "production" ? (
-                <Button asChild variant="quiet" size="md" className="h-11">
-                  <Link href="/diagnostics">
-                    <Activity className="h-4 w-4" />
-                    Diagnostics
-                  </Link>
-                </Button>
-              ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            <Button asChild variant="secondary" size="md" className="h-11">
+              <Link href="/dashboard#stock-search">
+                <Search className="h-4 w-4" />
+                Explain a Ticker
+              </Link>
+            </Button>
+            {process.env.NODE_ENV !== "production" ? (
+              <Button asChild variant="quiet" size="md" className="h-11">
+                <Link href="/diagnostics">
+                  <Activity className="h-4 w-4" />
+                  Diagnostics
+                </Link>
+              </Button>
+            ) : null}
+            <form action={signOutAction}>
               <Button type="submit" variant="quiet" size="md" className="h-11">
                 <LogOut className="h-4 w-4" />
                 Logout
               </Button>
-            </div>
-          </form>
+            </form>
+          </div>
         </PageContainer>
       </header>
 
-      <PageContainer className="py-5 sm:py-10">
-        <section className="space-y-6">
-          <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-            <div className="max-w-3xl space-y-3">
-              <Badge variant="ai" size="md">
-                <BrainCircuit className="h-3.5 w-3.5" />
-                Protected intelligence shell
-              </Badge>
-              <div className="space-y-2">
-                <h1 className="font-serif text-[2.2rem] leading-[0.98] tracking-tight text-ink sm:text-[3.75rem]">
-                  Welcome to ALQIS.
-                </h1>
-                <p className="break-words text-body text-ink-muted sm:text-body-lg">
-                  Signed in as {user.email}. Search a ticker to open the explanation-led stock detail screen.
+      <PageContainer className="max-w-[90rem] py-5 sm:py-7 lg:py-8">
+        <section className="space-y-6 lg:space-y-7">
+          <div className="space-y-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div className="max-w-3xl space-y-3">
+                <Badge variant="ai" size="md">
+                  ALQIS Today
+                </Badge>
+                <div className="space-y-2">
+                  <h1 className="font-serif text-[2.25rem] leading-[0.98] tracking-tight text-ink sm:text-[3.55rem] xl:text-[3.8rem]">
+                    Market intelligence, explained first.
+                  </h1>
+                  <p className="break-words text-body leading-7 text-ink-muted sm:text-body-lg sm:leading-8">
+                    Signed in as {user.email}. Today is organized around the
+                    question that matters first: why the market and your saved
+                    names are moving.
+                  </p>
+                </div>
+              </div>
+
+              <div className="w-full rounded-[var(--radius-xl)] border border-border/60 bg-surface/42 px-4 py-3 lg:w-auto lg:min-w-72">
+                <p className="section-kicker">Today&apos;s Context</p>
+                <p className="mt-1 break-words text-body-sm text-ink-muted">
+                  Following: {demoStocks.map((stock) => stock.symbol).join(" / ")}
+                </p>
+                <p className="mt-2 text-body-sm text-accent-secondary">
+                  Default read: {preferences.defaultTicker}
                 </p>
               </div>
             </div>
 
-            <div className="w-full rounded-[var(--radius-xl)] border border-border/60 bg-surface/42 px-4 py-3 lg:w-auto">
-              <p className="section-kicker">Tracked universe</p>
-              <p className="mt-1 break-words text-body-sm text-ink-muted">
-                {demoStocks.map((stock) => stock.symbol).join(" / ")}
-              </p>
-              <p className="mt-2 text-body-sm text-accent-secondary">
-                Default read: {preferences.defaultTicker}
-              </p>
-            </div>
+            <SessionTabs />
           </div>
 
-          <WatchlistSection
-            initialItems={watchlistItems}
-            initialError={watchlistError}
+          <TodayHero
+            generatedAt={formatDashboardTime(new Date())}
+            defaultTicker={preferences.defaultTicker}
+            watchlistCount={watchlistItems.length}
           />
+
+          <MarketPulseRow />
 
           <DailyBriefCard briefFocus={preferences.briefFocus} />
 
-          <PreferencesPanel initialPreferences={preferences} />
-
-          <RecentReadsSection items={recentReads} />
-
-          <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.42fr)]">
-            <div className="space-y-4">
+          <section
+            id="stock-search"
+            className="space-y-4"
+          >
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <p className="section-kicker">Stock intelligence search</p>
+                <p className="section-kicker text-accent-ai">Explain a ticker</p>
                 <h2 className="mt-2 font-serif text-[1.65rem] leading-tight tracking-tight text-ink sm:text-[2.4rem]">
-                  Search for a market read.
+                  Stock Intelligence Search
                 </h2>
               </div>
-              <TickerSearch />
+              <Button asChild variant="quiet" size="sm" className="min-h-10 w-fit">
+                <Link href="/learn">
+                  <BookOpen className="h-4 w-4" />
+                  Learn terms
+                </Link>
+              </Button>
             </div>
-
-            <DashboardPlaceholder
-              icon={<Sparkles className="h-5 w-5" />}
-              label="Why Is It Moving?"
-              title="Every stock page starts with the first answer."
-              description="Search routes into an explanation-first view with proof-of-move charting, key drivers, counterevidence, and peer read-through."
-              tone="ai"
-            />
+            <TickerSearch />
           </section>
 
-          <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(22rem,0.42fr)]">
-            <Card variant="subtle" radius="xl" className="border-border/72">
-              <CardHeader>
-                <CardEyebrow>Popular market reads</CardEyebrow>
-                <CardTitle>Open a market read.</CardTitle>
-                <CardDescription>
-                  Jump into tracked names that already support quote, chart, news, and structured explanation reads.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-3 lg:grid-cols-2">
-                  {popularReads.slice(0, 4).map((stock) => (
-                    <Link
-                      key={stock.symbol}
-                      href={`/stocks/${stock.symbol}`}
-                      className="group min-w-0 rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--surface)_18%)] p-4 transition duration-[var(--duration-fast)] hover:border-border-strong hover:bg-surface-elevated focus-visible:outline-2 focus-visible:outline-accent"
-                    >
-                      <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between">
-                        <div className="min-w-0">
-                          <p className="text-lg font-semibold text-ink">{stock.symbol}</p>
-                          <p className="mt-1 break-words text-body-sm text-ink-muted">
-                            {stock.companyName}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={stock.dailyChangePercent >= 0 ? "gain" : "loss"}
-                          size="sm"
-                        >
-                          {stock.dailyChangePercent >= 0 ? "+" : ""}
-                          {stock.dailyChangePercent.toFixed(2)}%
-                        </Badge>
-                      </div>
-                      <div className="mt-4 flex items-start gap-2 text-body-sm text-ink-subtle">
-                        <LineChart className="h-4 w-4 text-accent-secondary" />
-                        {stock.headline}
-                        {stock.symbol === preferences.defaultTicker ? (
-                          <span className="ml-2 rounded-full border border-accent-secondary/16 bg-[color-mix(in_srgb,var(--accent-secondary)_10%,transparent)] px-2 py-0.5 text-[0.68rem] uppercase tracking-[0.14em] text-accent-secondary">
-                            Default
-                          </span>
-                        ) : null}
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
+          <section className="grid gap-5 xl:grid-cols-[minmax(0,1.14fr)_minmax(22rem,0.86fr)]">
+            <div className="min-w-0 space-y-5">
+              <WatchlistSection
+                initialItems={watchlistItems}
+                initialError={watchlistError}
+              />
+              <RecentReadsSection items={recentReads} />
+              <PreferencesPanel initialPreferences={preferences} />
+            </div>
 
-            <DashboardPlaceholder
-              icon={<LineChart className="h-5 w-5" />}
-              label="Search a stock"
-              title="Build your watchlist from market reads."
-              description="Use search or popular reads to open a ticker, then save it into your personal ALQIS watchlist."
-              showEducationTips={preferences.showEducationTips}
-            />
-          </div>
+            <div className="min-w-0 space-y-5">
+              <TopMoversCard stocks={popularReads} />
+              <AITaggedNewsCard />
+              <EarningsThisWeekCard />
+              <SectorPulseCard />
+            </div>
+          </section>
+
+          <p className="rounded-[var(--radius-lg)] border border-border/60 bg-surface/32 px-4 py-3 text-body-sm leading-6 text-ink-subtle">
+            ALQIS explanations are informational only and do not constitute
+            investment advice. Demo-labeled market pulse, sector, earnings, and
+            AI-tagged news modules are placeholders until live providers are
+            connected for those surfaces.
+          </p>
         </section>
       </PageContainer>
     </main>
   );
+}
+
+function formatDashboardTime(value: Date) {
+  return new Intl.DateTimeFormat("en-US", {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(value);
 }
 
 async function getDashboardWatchlist(
@@ -260,7 +258,7 @@ async function getDashboardRecentReads(
     )
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-    .limit(6);
+    .limit(12);
 
   if (error) {
     if (process.env.NODE_ENV === "development") {
@@ -272,51 +270,10 @@ async function getDashboardRecentReads(
     return [];
   }
 
-  return ((data ?? []) as StockExplanationRow[]).map(toExplanationHistoryItem);
-}
-
-function DashboardPlaceholder({
-  icon,
-  label,
-  title,
-  description,
-  showEducationTips = true,
-  tone = "default",
-}: {
-  icon: ReactNode;
-  label: string;
-  title: string;
-  description: string;
-  showEducationTips?: boolean;
-  tone?: "default" | "ai";
-}) {
-  return (
-    <Card
-      variant="subtle"
-      radius="xl"
-      className={
-        tone === "ai"
-          ? "border-accent-ai/14 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_84%,var(--accent-ai)_10%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-ai)_6%)_100%)]"
-          : "border-border/70"
-      }
-    >
-      <CardHeader>
-        <div className="flex h-10 w-10 items-center justify-center rounded-[var(--radius-md)] border border-border/70 bg-surface/60 text-accent-secondary">
-          {icon}
-        </div>
-        <CardDescription>{label}</CardDescription>
-        <CardTitle>{title}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <p className="text-body text-ink-muted">{description}</p>
-        {label === "Search a stock" && showEducationTips ? (
-          <Button asChild variant="quiet" size="sm" className="mt-4 min-h-10">
-            <Link href="/learn">Open encyclopedia</Link>
-          </Button>
-        ) : null}
-      </CardContent>
-    </Card>
-  );
+  return ((data ?? []) as StockExplanationRow[])
+    .map(toExplanationHistoryItem)
+    .filter((item) => !isTestTicker(item.ticker))
+    .slice(0, 6);
 }
 
 function getPreferredMarketReads(defaultTicker: string) {
@@ -325,4 +282,14 @@ function getPreferredMarketReads(defaultTicker: string) {
   const remaining = demoStocks.filter((stock) => stock.symbol !== normalizedDefault);
 
   return preferred ? [preferred, ...remaining] : demoStocks;
+}
+
+function isTestTicker(ticker: string) {
+  const normalized = ticker.trim().toUpperCase();
+
+  return (
+    normalized === "FAKE123" ||
+    normalized.startsWith("FAKE") ||
+    normalized.includes("TEST")
+  );
 }

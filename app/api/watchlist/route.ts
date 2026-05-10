@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
+import { normalizedApiError, rateLimitedResponse } from "@/lib/errors/api-error";
 import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
+import {
+  getRateLimitKey,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import type { WatchlistApiItem, WatchlistApiResponse } from "@/lib/watchlist/types";
 
@@ -58,11 +64,20 @@ async function parseWatchlistBody(request: Request) {
   }
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const { supabase, user } = await getAuthenticatedUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    return normalizedApiError({ code: "AUTH_REQUIRED" });
+  }
+
+  const limit = await rateLimit(
+    getRateLimitKey(request, user.id, "watchlist"),
+    RATE_LIMITS.userMutation
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
   }
 
   const { data, error } = await supabase
@@ -76,10 +91,11 @@ export async function GET() {
       console.error("[ALQIS watchlist] Select failed", { error });
     }
 
-    return NextResponse.json(
-      { error: "Unable to load watchlist right now." },
-      { status: 500 }
-    );
+    return normalizedApiError({
+      code: "DATABASE_UNAVAILABLE",
+      message: "Unable to load watchlist right now.",
+      status: 500,
+    });
   }
 
   return NextResponse.json<WatchlistApiResponse>({
@@ -91,16 +107,25 @@ export async function POST(request: Request) {
   const { supabase, user } = await getAuthenticatedUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    return normalizedApiError({ code: "AUTH_REQUIRED" });
+  }
+
+  const limit = await rateLimit(
+    getRateLimitKey(request, user.id, "watchlist-save"),
+    RATE_LIMITS.userMutation
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
   }
 
   const parsed = await parseWatchlistBody(request);
 
   if (!parsed) {
-    return NextResponse.json(
-      { error: "Body must include a valid ticker." },
-      { status: 400 }
-    );
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Body must include a valid ticker.",
+    });
   }
 
   const { data, error } = await supabase
@@ -123,10 +148,11 @@ export async function POST(request: Request) {
       console.error("[ALQIS watchlist] Upsert failed", { error });
     }
 
-    return NextResponse.json(
-      { error: "Unable to save ticker to watchlist." },
-      { status: 500 }
-    );
+    return normalizedApiError({
+      code: "DATABASE_UNAVAILABLE",
+      message: "Unable to save ticker to watchlist.",
+      status: 500,
+    });
   }
 
   return NextResponse.json({
@@ -138,16 +164,25 @@ export async function DELETE(request: Request) {
   const { supabase, user } = await getAuthenticatedUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    return normalizedApiError({ code: "AUTH_REQUIRED" });
+  }
+
+  const limit = await rateLimit(
+    getRateLimitKey(request, user.id, "watchlist-remove"),
+    RATE_LIMITS.userMutation
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
   }
 
   const parsed = await parseWatchlistBody(request);
 
   if (!parsed) {
-    return NextResponse.json(
-      { error: "Body must include a valid ticker." },
-      { status: 400 }
-    );
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Body must include a valid ticker.",
+    });
   }
 
   const { error } = await supabase
@@ -161,10 +196,11 @@ export async function DELETE(request: Request) {
       console.error("[ALQIS watchlist] Delete failed", { error });
     }
 
-    return NextResponse.json(
-      { error: "Unable to remove ticker from watchlist." },
-      { status: 500 }
-    );
+    return normalizedApiError({
+      code: "DATABASE_UNAVAILABLE",
+      message: "Unable to remove ticker from watchlist.",
+      status: 500,
+    });
   }
 
   return NextResponse.json({

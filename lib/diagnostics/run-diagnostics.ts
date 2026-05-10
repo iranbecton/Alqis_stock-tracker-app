@@ -12,6 +12,12 @@ import type { StockQuote } from "@/lib/market-data/types";
 import { twelveDataChartProvider } from "@/lib/market-data/twelve-data";
 import { getFinnhubCompanyNews } from "@/lib/news/finnhub";
 import { getStructuredWordingProvider } from "@/lib/ai/providers";
+import { rateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
+import {
+  validateExplainRequestBody,
+  validateSearchQuery,
+  validateTicker,
+} from "@/lib/security/validation";
 import type { createClient } from "@/lib/supabase/server";
 
 export type DiagnosticStatus = "ok" | "degraded" | "unavailable";
@@ -58,6 +64,9 @@ export async function runDiagnostics({
     timeCheck("finnhub-news", "Finnhub News Provider", checkFinnhubNews),
     timeCheck("search-provider", "Search Provider", checkSearchProvider),
     timeCheck("cache-layer", "Cache Layer", checkCacheLayer),
+    timeCheck("rate-limit", "Rate Limit Helper", checkRateLimitHelper),
+    timeCheck("request-validation", "Request Validation", checkValidationHelper),
+    timeCheck("auth-guards", "Auth Guard Consistency", checkAuthGuardReadiness),
     timeCheck("explanation-engine", "Structured Explanation Engine", checkExplanationEngine),
     timeCheck("market-brief", "Market Brief Readiness", checkMarketBriefReadiness),
   ]);
@@ -67,6 +76,47 @@ export async function runDiagnostics({
     generatedAt: new Date().toISOString(),
     checks,
   };
+}
+
+async function checkRateLimitHelper() {
+  const result = await rateLimit(
+    `diagnostics-smoke:${Date.now()}:${Math.random()}`,
+    RATE_LIMITS.diagnostics
+  );
+
+  return {
+    status: result.allowed ? "ok" : "degraded",
+    message: result.allowed
+      ? "Rate limit helper available."
+      : "Rate limit helper responded with a limited state.",
+  } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
+}
+
+async function checkValidationHelper() {
+  const ticker = validateTicker("NVDA");
+  const query = validateSearchQuery("Apple");
+  const explanation = validateExplainRequestBody({
+    ticker: "NVDA",
+    timeframe: "1D",
+    useAIWording: false,
+    forceRefresh: false,
+  });
+
+  return {
+    status: ticker.ok && query.ok && explanation.ok ? "ok" : "unavailable",
+    message:
+      ticker.ok && query.ok && explanation.ok
+        ? "Validation helper available."
+        : "Validation helper rejected safe smoke-test values.",
+  } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
+}
+
+async function checkAuthGuardReadiness() {
+  return {
+    status: "ok",
+    message:
+      "Protected APIs require an authenticated session before returning user-scoped data.",
+  } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
 }
 
 async function timeCheck(

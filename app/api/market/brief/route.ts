@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { withCache } from "@/lib/cache";
 import { marketBriefCacheKey, quoteCacheKey } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
+import { normalizedApiError, rateLimitedResponse } from "@/lib/errors/api-error";
 import {
   buildDailyMarketBrief,
   type DailyBriefInputItem,
@@ -13,6 +14,12 @@ import {
 import type { CompanyProfile, StockQuote } from "@/lib/market-data/types";
 import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
 import { getUserPreferences } from "@/lib/preferences/get-user-preferences";
+import {
+  getRateLimitKey,
+  isRefreshRequest,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 import { stockUniverse } from "@/lib/stocks/stock-universe";
 import type { WatchlistApiItem } from "@/lib/watchlist/types";
@@ -41,11 +48,23 @@ export async function GET(request: Request) {
   } = await supabase.auth.getUser();
 
   if (userError || !user) {
-    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    return normalizedApiError({ code: "AUTH_REQUIRED" });
   }
 
-  const { searchParams } = new URL(request.url);
-  const forceRefresh = searchParams.get("refresh") === "true";
+  const forceRefresh = isRefreshRequest(request);
+  const limit = await rateLimit(
+    getRateLimitKey(
+      request,
+      user.id,
+      forceRefresh ? "market-brief-refresh" : "market-brief"
+    ),
+    forceRefresh ? RATE_LIMITS.explainRefresh : RATE_LIMITS.marketBrief
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
+  }
+
   const dateKey = new Date().toISOString().slice(0, 10);
   const preferences = await getUserPreferences(supabase, user.id);
   const key = marketBriefCacheKey(user.id, dateKey, preferences.briefFocus);

@@ -2,12 +2,19 @@ import { NextResponse } from "next/server";
 import { withCache } from "@/lib/cache";
 import { chartCacheKey } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
+import { normalizedApiError, rateLimitedResponse } from "@/lib/errors/api-error";
 import { twelveDataChartProvider } from "@/lib/market-data/twelve-data";
 import {
   isValidTicker,
   normalizeTicker,
   parseChartRange,
 } from "@/lib/market-data/validation";
+import {
+  getRateLimitKey,
+  isRefreshRequest,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
 
 type RouteContext = {
   params: Promise<{
@@ -20,20 +27,32 @@ export async function GET(request: Request, context: RouteContext) {
   const symbol = normalizeTicker(ticker);
   const { searchParams } = new URL(request.url);
   const range = parseChartRange(searchParams.get("range"));
-  const forceRefresh = searchParams.get("refresh") === "true";
+  const forceRefresh = isRefreshRequest(request);
+  const limit = await rateLimit(
+    getRateLimitKey(
+      request,
+      null,
+      forceRefresh ? "chart-refresh" : "chart"
+    ),
+    forceRefresh ? RATE_LIMITS.marketDataRefresh : RATE_LIMITS.marketData
+  );
+
+  if (!limit.allowed) {
+    return rateLimitedResponse(limit.resetAt);
+  }
 
   if (!isValidTicker(symbol)) {
-    return NextResponse.json(
-      { error: "Invalid ticker symbol." },
-      { status: 400 }
-    );
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Invalid ticker symbol.",
+    });
   }
 
   if (!range) {
-    return NextResponse.json(
-      { error: "Unsupported chart range. Use 1D, 5D, or 1M." },
-      { status: 400 }
-    );
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Unsupported chart range. Use 1D, 5D, or 1M.",
+    });
   }
 
   try {
@@ -81,6 +100,10 @@ export async function GET(request: Request, context: RouteContext) {
             : result.providerRateLimited
               ? "Chart provider rate limited."
               : "Chart provider error.",
+          code: result.providerRateLimited
+            ? "rate_limited"
+            : "provider_unavailable",
+          retryable: true,
           provider: result.provider,
           providerAccessError: Boolean(result.providerAccessError),
           providerRateLimited: Boolean(result.providerRateLimited),
@@ -124,6 +147,8 @@ export async function GET(request: Request, context: RouteContext) {
     return NextResponse.json(
       {
         error: "Chart provider unavailable.",
+        code: "provider_unavailable",
+        retryable: true,
         provider: "twelve-data",
         fallback: "demo-chart-structure",
         symbol,

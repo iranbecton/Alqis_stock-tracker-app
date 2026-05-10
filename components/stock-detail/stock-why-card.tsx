@@ -38,7 +38,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
           <div className="space-y-2">
             <Badge variant="ai" size="md" className="shadow-[0_8px_22px_rgba(12,10,20,0.18)]">
               <Sparkles className="h-3.5 w-3.5" />
-              {explanation.title}
+              ALQIS Read
             </Badge>
             <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[0.86rem] leading-5 text-ink-muted">
               <span className="rounded-full border border-accent-ai/14 bg-[color-mix(in_srgb,var(--accent-ai)_10%,transparent)] px-2.5 py-1">
@@ -59,16 +59,16 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
         </div>
 
         <div className="space-y-3.5">
-          <div className="flex items-center gap-2 text-body-sm text-accent-ai">
+          <div className="flex items-center gap-2 text-body-sm font-medium text-accent-ai">
             <BrainCircuit className="h-4 w-4" />
-            First answer
+            Why this moved
           </div>
 
           <div className="space-y-2.5">
             <h2 className="font-serif text-[1.85rem] leading-[1] tracking-tight text-ink sm:text-[2.85rem]">
               {explanation.headline}
             </h2>
-            <p className="max-w-2xl text-body text-ink-muted">{explanation.summary}</p>
+            <p className="max-w-2xl text-body leading-7 text-ink-muted">{explanation.summary}</p>
             {explanation.wordingNote ? (
               <div className="inline-flex flex-wrap gap-x-2 gap-y-1 rounded-full border border-accent-ai/14 bg-[color-mix(in_srgb,var(--accent-ai)_10%,transparent)] px-3 py-1.5 text-[0.72rem] font-medium uppercase tracking-[0.16em] text-accent-ai">
                 <span>{explanation.wordingNote}</span>
@@ -111,7 +111,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
 
         <section aria-labelledby="reason-stack" className="space-y-3">
           <h3 id="reason-stack" className="section-kicker">
-            Top drivers
+            Key signals
           </h3>
 
           <div className="space-y-3">
@@ -123,7 +123,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-ink">{reason.label}</p>
-                    <p className="mt-1 text-[0.84rem] leading-5 text-ink-muted">{reason.detail}</p>
+                    <p className="mt-1 text-body-sm leading-6 text-ink-muted">{reason.detail}</p>
                   </div>
                   <span className="text-sm font-medium text-ink" data-numeric>
                     {reason.score}%
@@ -158,7 +158,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
                 className="rounded-[var(--radius-md)] border border-border/60 bg-surface/40 px-4 py-3"
               >
                 <p className="text-sm font-medium text-ink">{item.label}</p>
-                <p className="mt-1.5 text-[0.84rem] leading-5 text-ink-muted">{item.detail}</p>
+                <p className="mt-1.5 text-body-sm leading-6 text-ink-muted">{item.detail}</p>
               </div>
             ))}
             {hiddenCounterEvidence.length ? (
@@ -177,7 +177,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
                         className="rounded-[var(--radius-md)] border border-border/60 bg-surface/40 px-4 py-3"
                       >
                         <p className="text-sm font-medium text-ink">{item.label}</p>
-                        <p className="mt-1.5 text-[0.84rem] leading-5 text-ink-muted">
+                        <p className="mt-1.5 text-body-sm leading-6 text-ink-muted">
                           {item.detail}
                         </p>
                       </div>
@@ -234,7 +234,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
                       </Badge>
                     ))}
                   </div>
-                  <p className="text-[0.84rem] leading-5 text-ink-muted">{explanation.trustNote}</p>
+                  <p className="text-body-sm leading-6 text-ink-muted">{explanation.trustNote}</p>
                 </div>
 
                 <div className="space-y-3 border-t border-border/50 pt-4">
@@ -248,7 +248,7 @@ export function StockWhyCard({ data = stockDetailDemoData }: StockWhyCardProps) 
                         <div className="flex items-start justify-between gap-3">
                           <div>
                             <p className="text-sm font-medium text-ink">{item.title}</p>
-                            <p className="mt-2 text-[0.84rem] leading-5 text-ink-muted">{item.detail}</p>
+                            <p className="mt-2 text-body-sm leading-6 text-ink-muted">{item.detail}</p>
                           </div>
                           <span className="shrink-0 text-xs uppercase tracking-label text-ink-subtle">
                             {item.time}

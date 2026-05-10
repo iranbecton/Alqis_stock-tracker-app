@@ -1,9 +1,15 @@
 import { NextResponse } from "next/server";
+import { normalizedApiError, rateLimitedResponse } from "@/lib/errors/api-error";
 import {
   type StockExplanationRow,
   toExplanationHistoryItem,
 } from "@/lib/explanations/types";
 import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
+import {
+  getRateLimitKey,
+  rateLimit,
+  RATE_LIMITS,
+} from "@/lib/security/rate-limit";
 import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -32,7 +38,16 @@ export async function GET(request: Request) {
   const { supabase, user } = await getAuthenticatedUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    return normalizedApiError({ code: "AUTH_REQUIRED" });
+  }
+
+  const rate = await rateLimit(
+    getRateLimitKey(request, user.id, "explanation-history"),
+    RATE_LIMITS.userMutation
+  );
+
+  if (!rate.allowed) {
+    return rateLimitedResponse(rate.resetAt);
   }
 
   const { searchParams } = new URL(request.url);
@@ -44,7 +59,10 @@ export async function GET(request: Request) {
   );
 
   if (ticker && !isValidTicker(ticker)) {
-    return NextResponse.json({ error: "Invalid ticker symbol." }, { status: 400 });
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Invalid ticker symbol.",
+    });
   }
 
   let query = supabase
@@ -67,10 +85,11 @@ export async function GET(request: Request) {
       console.error("[ALQIS explanations] History select failed", { error });
     }
 
-    return NextResponse.json(
-      { error: "Unable to load explanation history right now." },
-      { status: 500 }
-    );
+    return normalizedApiError({
+      code: "DATABASE_UNAVAILABLE",
+      message: "Unable to load explanation history right now.",
+      status: 500,
+    });
   }
 
   return NextResponse.json({
@@ -82,7 +101,16 @@ export async function DELETE(request: Request) {
   const { supabase, user } = await getAuthenticatedUser();
 
   if (!user) {
-    return NextResponse.json({ error: "Authentication required." }, { status: 401 });
+    return normalizedApiError({ code: "AUTH_REQUIRED" });
+  }
+
+  const rate = await rateLimit(
+    getRateLimitKey(request, user.id, "explanation-history-delete"),
+    RATE_LIMITS.userMutation
+  );
+
+  if (!rate.allowed) {
+    return rateLimitedResponse(rate.resetAt);
   }
 
   let id = "";
@@ -91,11 +119,17 @@ export async function DELETE(request: Request) {
     const body = (await request.json()) as { id?: unknown };
     id = typeof body.id === "string" ? body.id : "";
   } catch {
-    return NextResponse.json({ error: "Body must include an id." }, { status: 400 });
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Body must include an id.",
+    });
   }
 
   if (!UUID_PATTERN.test(id)) {
-    return NextResponse.json({ error: "Invalid explanation id." }, { status: 400 });
+    return normalizedApiError({
+      code: "VALIDATION_ERROR",
+      message: "Invalid explanation id.",
+    });
   }
 
   const { error } = await supabase
@@ -109,10 +143,11 @@ export async function DELETE(request: Request) {
       console.error("[ALQIS explanations] History delete failed", { error });
     }
 
-    return NextResponse.json(
-      { error: "Unable to delete explanation history item." },
-      { status: 500 }
-    );
+    return normalizedApiError({
+      code: "DATABASE_UNAVAILABLE",
+      message: "Unable to delete explanation history item.",
+      status: 500,
+    });
   }
 
   return NextResponse.json({
