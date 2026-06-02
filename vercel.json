@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/evaluate-alerts",
+      "schedule": "*/5 13-20 * * 1-5"
+    },
+    {
+      "path": "/api/cron/after-hours-notes",
+      "schedule": "5 20 * * 1-5"
+    }
+  ]
+}
