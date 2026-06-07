@@ -80,6 +80,11 @@
   --bg-muted: color-mix(in srgb, var(--background) 78%, var(--surface) 22%);
   --surface-strong: color-mix(in srgb, var(--surface-alt) 76%, #1a2530 24%);
   --surface-2: color-mix(in srgb, var(--surface) 46%, var(--surface-alt) 54%);
+  --surface-floating: linear-gradient(180deg, #1a2836 0%, #111d29 55%, #0c1622 100%);
+  --surface-raised: linear-gradient(180deg, #141e2a 0%, #0e1822 100%);
+  --surface-grounded: linear-gradient(180deg, #0e1822 0%, #0a141e 100%);
+  --highlight-top: inset 0 1px 0 rgba(255,255,255,0.10), inset 0 0 0 1px rgba(255,255,255,0.04);
+  --shadow-floating: 0 28px 64px rgba(2,6,12,0.6);
   --overlay: rgba(4, 9, 13, 0.8);
   --ink: var(--text-primary);
   --ink-muted: var(--text-secondary);
@@ -197,6 +202,28 @@
 }
 
 @layer utilities {
+  .portfolio-input {
+    min-height: 2.75rem;
+    width: 100%;
+    border-radius: 0.8rem;
+    border: 1px solid rgba(47, 114, 213, 0.24);
+    background: rgba(7, 17, 31, 0.78);
+    padding: 0.75rem 0.85rem;
+    color: #f4eee2;
+    outline: none;
+    transition: border-color var(--duration-fast) var(--ease-out-quart),
+      box-shadow var(--duration-fast) var(--ease-out-quart);
+  }
+
+  .portfolio-input:focus {
+    border-color: rgba(114, 199, 190, 0.52);
+    box-shadow: 0 0 0 2px rgba(114, 199, 190, 0.14);
+  }
+
+  .portfolio-input:disabled {
+    opacity: 0.65;
+  }
+
   .text-display {
     font-size: var(--type-display);
     line-height: 0.95;
@@ -363,6 +390,80 @@
     padding: 0.875rem;
   }
 
+  .alqis-seamless-chart-field {
+    isolation: isolate;
+    overflow: visible;
+  }
+
+  .alqis-seamless-chart-field::before,
+  .alqis-seamless-chart-field::after {
+    content: "";
+    position: absolute;
+    pointer-events: none;
+    z-index: -1;
+  }
+
+  .alqis-seamless-chart-field::before {
+    inset: 2% 5% 8%;
+    background:
+      radial-gradient(ellipse at 72% 22%, rgba(55, 156, 255, 0.16), transparent 31%),
+      radial-gradient(ellipse at 50% 66%, rgba(45, 112, 196, 0.12), transparent 43%),
+      radial-gradient(ellipse at 84% 50%, rgba(77, 220, 154, 0.08), transparent 28%);
+    filter: blur(28px);
+    opacity: 0.82;
+    -webkit-mask-image:
+      radial-gradient(ellipse at 64% 45%, #000 0%, #000 46%, transparent 74%),
+      linear-gradient(90deg, transparent 0%, #000 22%, #000 72%, transparent 100%),
+      linear-gradient(180deg, transparent 0%, #000 16%, #000 62%, transparent 100%);
+    mask-image:
+      radial-gradient(ellipse at 64% 45%, #000 0%, #000 46%, transparent 74%),
+      linear-gradient(90deg, transparent 0%, #000 22%, #000 72%, transparent 100%),
+      linear-gradient(180deg, transparent 0%, #000 16%, #000 62%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  .alqis-seamless-chart-field::after {
+    inset: 56% -8% -18%;
+    background:
+      radial-gradient(ellipse at 55% 0%, rgba(5, 9, 16, 0.16), transparent 54%),
+      linear-gradient(180deg, transparent 0%, rgba(5, 9, 16, 0.7) 72%, #050910 100%);
+    opacity: 0.34;
+    -webkit-mask-image: radial-gradient(ellipse at 54% 0%, #000 0%, #000 28%, transparent 72%);
+    mask-image: radial-gradient(ellipse at 54% 0%, #000 0%, #000 28%, transparent 72%);
+  }
+
+  .alqis-seamless-chart-atmosphere {
+    background:
+      radial-gradient(ellipse at 70% 30%, rgba(50, 145, 246, 0.095), transparent 30%),
+      radial-gradient(ellipse at 54% 58%, rgba(18, 68, 122, 0.075), transparent 42%),
+      radial-gradient(ellipse at 83% 38%, rgba(70, 215, 160, 0.045), transparent 25%);
+    -webkit-mask-image:
+      radial-gradient(ellipse at 62% 42%, #000 0%, #000 48%, transparent 76%),
+      linear-gradient(90deg, transparent 0%, #000 20%, #000 78%, transparent 100%),
+      linear-gradient(180deg, transparent 0%, #000 10%, #000 66%, transparent 100%);
+    mask-image:
+      radial-gradient(ellipse at 62% 42%, #000 0%, #000 48%, transparent 76%),
+      linear-gradient(90deg, transparent 0%, #000 20%, #000 78%, transparent 100%),
+      linear-gradient(180deg, transparent 0%, #000 10%, #000 66%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
+  .alqis-seamless-chart-svg {
+    opacity: 0.94;
+    -webkit-mask-image:
+      radial-gradient(ellipse at 62% 43%, #000 0%, #000 58%, transparent 83%),
+      linear-gradient(90deg, transparent 0%, #000 14%, #000 82%, transparent 100%),
+      linear-gradient(180deg, transparent 0%, #000 8%, #000 72%, transparent 100%);
+    mask-image:
+      radial-gradient(ellipse at 62% 43%, #000 0%, #000 58%, transparent 83%),
+      linear-gradient(90deg, transparent 0%, #000 14%, #000 82%, transparent 100%),
+      linear-gradient(180deg, transparent 0%, #000 8%, #000 72%, transparent 100%);
+    -webkit-mask-composite: source-in;
+    mask-composite: intersect;
+  }
+
   .dense-finance-grid {
     display: grid;
     gap: 1px;
@@ -460,6 +561,128 @@
   .scrollbar-dark::-webkit-scrollbar-thumb:hover {
     background: color-mix(in srgb, var(--accent-secondary) 42%, var(--border-strong) 58%);
     background-clip: padding-box;
+  }
+
+  .alqis-stock-shell {
+    position: relative;
+    min-height: 100dvh;
+    color: var(--ink);
+    background:
+      radial-gradient(circle at 14% 6%, rgba(52, 133, 255, 0.13), transparent 30rem),
+      radial-gradient(circle at 88% 18%, rgba(142, 216, 208, 0.09), transparent 24rem),
+      radial-gradient(circle at 78% 84%, rgba(139, 132, 199, 0.11), transparent 30rem),
+      linear-gradient(180deg, #040914 0%, #07111d 44%, #03070e 100%);
+    isolation: isolate;
+  }
+
+  .alqis-stock-shell::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -2;
+    pointer-events: none;
+    background-image:
+      linear-gradient(rgba(125, 166, 217, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(125, 166, 217, 0.027) 1px, transparent 1px);
+    background-size: 88px 88px;
+    mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.86), transparent 78%);
+  }
+
+  .alqis-stock-shell::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      linear-gradient(180deg, rgba(3, 7, 14, 0) 0%, rgba(3, 7, 14, 0.64) 100%),
+      radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.035), transparent 28rem);
+  }
+
+  .alqis-stock-rail {
+    border-color: rgba(72, 111, 160, 0.34);
+    background:
+      linear-gradient(180deg, rgba(5, 11, 22, 0.94) 0%, rgba(5, 10, 18, 0.78) 100%);
+    box-shadow: 0 18px 52px rgba(0, 0, 0, 0.24);
+    backdrop-filter: blur(22px);
+  }
+
+  .alqis-stock-hero-card,
+  .alqis-stock-workspace,
+  .alqis-stock-panel {
+    position: relative;
+    overflow: hidden;
+    border: 1px solid rgba(77, 128, 194, 0.28);
+    background:
+      radial-gradient(circle at 12% 0%, rgba(55, 156, 255, 0.12), transparent 28rem),
+      radial-gradient(circle at 88% 12%, rgba(142, 216, 208, 0.08), transparent 24rem),
+      linear-gradient(145deg, rgba(13, 28, 48, 0.92) 0%, rgba(8, 17, 31, 0.96) 48%, rgba(4, 9, 16, 0.98) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.045),
+      0 32px 100px rgba(0, 0, 0, 0.38);
+  }
+
+  .alqis-stock-hero-card::before,
+  .alqis-stock-workspace::before,
+  .alqis-stock-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    border-radius: inherit;
+    background:
+      linear-gradient(90deg, rgba(73, 145, 255, 0.18), transparent 24%, transparent 76%, rgba(142, 216, 208, 0.12)),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.045), transparent 22%);
+    opacity: 0.72;
+  }
+
+  .alqis-stock-read-object {
+    border-color: rgba(98, 169, 255, 0.36);
+    background:
+      radial-gradient(circle at 0% 0%, rgba(83, 151, 255, 0.22), transparent 28rem),
+      radial-gradient(circle at 100% 16%, rgba(139, 132, 199, 0.16), transparent 24rem),
+      radial-gradient(circle at 78% 88%, rgba(142, 216, 208, 0.11), transparent 22rem),
+      linear-gradient(145deg, rgba(13, 30, 53, 0.96) 0%, rgba(8, 15, 29, 0.98) 54%, rgba(4, 8, 15, 0.98) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 34px 110px rgba(0, 0, 0, 0.42),
+      0 0 0 1px rgba(142, 216, 208, 0.035);
+  }
+
+  .alqis-stock-chart-card {
+    border-color: rgba(67, 134, 216, 0.28);
+    background:
+      radial-gradient(circle at 70% 8%, rgba(67, 160, 255, 0.15), transparent 24rem),
+      radial-gradient(circle at 16% 82%, rgba(142, 216, 208, 0.09), transparent 22rem),
+      linear-gradient(180deg, rgba(9, 24, 43, 0.94) 0%, rgba(5, 12, 22, 0.98) 100%);
+  }
+
+  .alqis-stock-stat-card {
+    border: 1px solid rgba(86, 125, 172, 0.24);
+    background:
+      linear-gradient(180deg, rgba(13, 27, 46, 0.78) 0%, rgba(7, 15, 27, 0.84) 100%);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.028);
+  }
+
+  .alqis-stock-chart-field {
+    background:
+      radial-gradient(circle at 72% 12%, rgba(52, 157, 255, 0.18), transparent 22rem),
+      radial-gradient(circle at 86% 38%, rgba(77, 220, 154, 0.08), transparent 18rem),
+      linear-gradient(180deg, rgba(10, 24, 42, 0.62) 0%, rgba(4, 10, 18, 0.84) 100%);
+    border-color: rgba(67, 134, 216, 0.23);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      0 22px 70px rgba(0, 0, 0, 0.28);
+  }
+
+  .alqis-stock-tab-rail {
+    border-color: rgba(67, 134, 216, 0.27);
+    background:
+      linear-gradient(180deg, rgba(8, 17, 31, 0.92) 0%, rgba(4, 10, 19, 0.92) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      0 18px 54px rgba(0, 0, 0, 0.34);
+    backdrop-filter: blur(18px);
   }
 
   @media (min-width: 48rem) {

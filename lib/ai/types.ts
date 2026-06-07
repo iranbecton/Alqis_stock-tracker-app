@@ -115,6 +115,7 @@ export type WhyMovingInputs = {
   chartStatus?: string;
   chartFallback?: string | null;
   newsItems: TaggedNewsItem[];
+  topCauses?: Array<{ tag: string; score: number; evidence?: string }>;
 };
 
 export type QuoteApiPayload = StockQuote & {

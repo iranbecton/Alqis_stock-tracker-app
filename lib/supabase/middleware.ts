@@ -1,8 +1,9 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { applySecurityHeaders } from "@/lib/security/headers";
 import { hasSupabaseEnv, getSupabaseEnv } from "./env";
 
-const PROTECTED_PATHS = ["/dashboard", "/stocks"];
+const PROTECTED_PATHS = ["/dashboard", "/stocks", "/onboarding"];
 const AUTH_PATHS = ["/login", "/signup"];
 
 export async function updateSession(request: NextRequest) {
@@ -84,14 +85,4 @@ export async function updateSession(request: NextRequest) {
   }
 
   return response;
-}
-
-function applySecurityHeaders(response: NextResponse) {
-  response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set(
-    "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=(), usb=(), bluetooth=()"
-  );
 }

@@ -221,29 +221,27 @@ function evaluateNewsStatus(
 
 function evaluateOverallStatus({
   quoteStatus,
-  profileStatus,
   chartStatus,
-  newsStatus,
 }: Pick<
   StockDataHealth,
   "quoteStatus" | "profileStatus" | "chartStatus" | "newsStatus"
 >): OverallStockDataStatus {
   if (
-    quoteStatus === "ok" &&
-    profileStatus === "ok" &&
-    chartStatus === "ok" &&
-    newsStatus === "ok"
+    (quoteStatus === "ok" || quoteStatus === "partial") &&
+    chartStatus === "ok"
   ) {
     return "complete";
   }
 
   if (quoteStatus === "missing" || quoteStatus === "error") {
-    return profileStatus === "ok" || profileStatus === "partial"
-      ? "limited"
-      : "unavailable";
+    return "unavailable";
   }
 
-  if (chartStatus === "missing" && newsStatus === "missing") {
+  if (
+    chartStatus === "missing" ||
+    chartStatus === "error" ||
+    chartStatus === "fallback"
+  ) {
     return "limited";
   }
 

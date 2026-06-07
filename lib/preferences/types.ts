@@ -1,4 +1,4 @@
-export const chartRanges = ["1D", "5D", "1M"] as const;
+export const chartRanges = ["1D", "5D", "1M", "6M", "1Y"] as const;
 export const experienceLevels = ["beginner", "intermediate", "advanced"] as const;
 export const briefFocusOptions = [
   "balanced",
@@ -103,5 +103,5 @@ export function normalizePreferencesRow(
 export function normalizePreferenceTicker(value: unknown) {
   const ticker = typeof value === "string" ? value.trim().toUpperCase() : "";
 
-  return /^[A-Z]{1,6}$/.test(ticker) ? ticker : "NVDA";
+  return /^[A-Z]{1,5}$/.test(ticker) ? ticker : "NVDA";
 }

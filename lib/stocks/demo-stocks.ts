@@ -35,7 +35,7 @@ export const demoStocks = [
       { label: "1:00", value: 994 },
       { label: "2:00", value: 989 },
     ],
-    headline: "AI infrastructure demand keeps leadership bid intact",
+    headline: "AI infrastructure demand keeps leadership context in focus",
     news: "Cloud spending commentary and semiconductor breadth are reinforcing confidence in accelerator demand.",
     explanation:
       "Investors are paying up for durable AI demand after fresh cloud and enterprise commentary suggested accelerator budgets remain strategic rather than discretionary.",

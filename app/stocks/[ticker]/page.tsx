@@ -28,7 +28,10 @@ import { isValidTicker, normalizeTicker } from "@/lib/market-data/validation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 import { getUserPreferences } from "@/lib/preferences/get-user-preferences";
-import { evaluateStockDataHealth } from "@/lib/stocks/stock-data-health";
+import {
+  evaluateStockDataHealth,
+  type StockDataHealth,
+} from "@/lib/stocks/stock-data-health";
 import {
   type StockExplanationRow,
   toExplanationHistoryItem,
@@ -157,16 +160,10 @@ async function getStockMarketData(symbol: string): Promise<StockDetailMarketData
   const chartAccessError = [chart1D, chart5D, chart1M].some(
     (result) => result.data?.providerAccessError
   );
-  const globalErrors = [quoteResult.error, newsResult.error].filter(Boolean);
   const hasAnyLiveData =
     Boolean(quoteResult.data) ||
     Object.values(charts).some((points) => points.length > 0) ||
     Boolean(newsResult.data?.items.length);
-  const providerState = !hasAnyLiveData
-    ? "fallback"
-    : globalErrors.length > 0
-      ? "empty"
-      : "live";
 
   const chartRanges = {
     "1D": {
@@ -200,6 +197,14 @@ async function getStockMarketData(symbol: string): Promise<StockDetailMarketData
     newsError: newsResult.error,
     chartError: [chart1D.error, chart5D.error, chart1M.error].find(Boolean),
   });
+  const providerState = !hasAnyLiveData
+    ? "fallback"
+    : dataHealth.overallStatus === "unavailable" ||
+        dataHealth.overallStatus === "limited"
+      ? "fallback"
+      : dataHealth.overallStatus === "partial"
+        ? "empty"
+        : "live";
 
   if (process.env.NODE_ENV === "development" && dataHealth.overallStatus !== "complete") {
     console.error("[ALQIS stock-page] Provider health degraded", {
@@ -209,6 +214,7 @@ async function getStockMarketData(symbol: string): Promise<StockDetailMarketData
         quoteError: quoteResult.error,
         chartErrors: [chart1D.error, chart5D.error, chart1M.error],
         newsError: newsResult.error,
+        dataHealth,
       }),
       reason: dataHealth.missingFields.join(", ") || dataHealth.userFacingLabel,
       fallbackUsed: dataHealth.chartStatus === "fallback",
@@ -233,14 +239,28 @@ function getFailedEndpoint({
   quoteError,
   chartErrors,
   newsError,
+  dataHealth,
 }: {
   quoteError?: string;
   chartErrors: Array<string | undefined>;
   newsError?: string;
+  dataHealth?: StockDataHealth;
 }) {
   if (quoteError) return "/api/stocks/[ticker]/quote";
   if (chartErrors.some(Boolean)) return "/api/stocks/[ticker]/chart";
   if (newsError) return "/api/stocks/[ticker]/news";
+  if (dataHealth?.quoteStatus === "missing" || dataHealth?.quoteStatus === "error") {
+    return "/api/stocks/[ticker]/quote";
+  }
+  if (
+    dataHealth?.chartStatus === "missing" ||
+    dataHealth?.chartStatus === "error" ||
+    dataHealth?.chartStatus === "fallback"
+  ) {
+    return "/api/stocks/[ticker]/chart";
+  }
+  if (dataHealth?.profileStatus !== "ok") return "profile";
+  if (dataHealth?.newsStatus !== "ok") return "/api/stocks/[ticker]/news";
   return "health-check";
 }
 
@@ -336,12 +356,20 @@ async function getWhyMovingExplanation(
     }
   );
 
-  if (!result.data) {
+  if (result.error || !result.data) {
     return undefined;
   }
 
   if ("structuredExplanation" in result.data) {
+    if (!isWhyMovingResponse(result.data.structuredExplanation)) {
+      return undefined;
+    }
+
     return result.data;
+  }
+
+  if (!isWhyMovingResponse(result.data)) {
+    return undefined;
   }
 
   return {
@@ -351,6 +379,28 @@ async function getWhyMovingExplanation(
     aiWording: undefined as AIWordingOutput | undefined,
     aiWordingFailureReason: undefined as AIWordingFailureReason | undefined,
   };
+}
+
+function isWhyMovingResponse(value: unknown): value is WhyMovingResponse {
+  if (!value || typeof value !== "object") {
+    return false;
+  }
+
+  const candidate = value as Partial<WhyMovingResponse>;
+
+  return (
+    typeof candidate.ticker === "string" &&
+    typeof candidate.timeframe === "string" &&
+    typeof candidate.summary === "string" &&
+    typeof candidate.movePct === "number" &&
+    typeof candidate.generatedAt === "string" &&
+    Array.isArray(candidate.keyFactors) &&
+    Array.isArray(candidate.counterEvidence) &&
+    Boolean(candidate.confidence) &&
+    typeof candidate.confidence?.label === "string" &&
+    typeof candidate.confidence?.band === "string" &&
+    typeof candidate.confidence?.score === "number"
+  );
 }
 
 async function getWatchlistStatus(

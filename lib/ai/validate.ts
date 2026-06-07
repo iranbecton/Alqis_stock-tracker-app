@@ -172,11 +172,7 @@ export function checkDirectionality(
 
     if (direction === 'flat') return {ok: true};
 
-    const [driverClause = '', ...counterParts] = summary.split(COUNTER_MARKER);
-    // split() includes the delimiters; strip them
-    const counterClause = counterParts
-        .filter(p => !COUNTER_MARKER.test(p))
-        .join(' ');
+    const [driverClause = ''] = summary.split(COUNTER_MARKER);
 
     const tokens = (text: string) =>
         text.toLowerCase().match(/\b[a-z]+\b/g) ?? [];

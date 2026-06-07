@@ -13,8 +13,17 @@ export type RateLimitOptions = {
   windowSeconds: number;
 };
 
+export type RefreshCooldownResult = {
+  allowed: boolean;
+  resetAt?: string;
+};
+
 type RateLimitEntry = {
   count: number;
+  resetAt: string;
+};
+
+type RefreshCooldownEntry = {
   resetAt: string;
 };
 
@@ -28,6 +37,14 @@ export const RATE_LIMITS = {
   marketBrief: { limit: 20, windowSeconds: 60 },
   diagnostics: { limit: 8, windowSeconds: 60 },
   userMutation: { limit: 60, windowSeconds: 60 },
+} as const;
+
+export const REFRESH_COOLDOWNS = {
+  marketData: 12,
+  search: 8,
+  explain: 20,
+  marketBrief: 30,
+  watchlistIntelligence: 20,
 } as const;
 
 export async function rateLimit(
@@ -63,6 +80,34 @@ export async function rateLimit(
   return result;
 }
 
+export async function refreshCooldown(
+  key: string,
+  cooldownSeconds: number
+): Promise<RefreshCooldownResult> {
+  const now = Date.now();
+  const cacheKey = `refresh-cooldown:${stableHash(key)}`;
+  const existing = await getCache<RefreshCooldownEntry>(cacheKey);
+  const existingReset = existing ? new Date(existing.resetAt).getTime() : 0;
+
+  if (existing && existingReset > now) {
+    logRefreshCooldown("blocked", key, existing.resetAt);
+
+    return {
+      allowed: false,
+      resetAt: existing.resetAt,
+    };
+  }
+
+  const resetAt = new Date(now + cooldownSeconds * 1000).toISOString();
+  await setCache(cacheKey, { resetAt }, cooldownSeconds);
+  logRefreshCooldown("allowed", key, resetAt);
+
+  return {
+    allowed: true,
+    resetAt,
+  };
+}
+
 export function getRateLimitKey(
   request: Request,
   userId?: string | null,
@@ -90,4 +135,20 @@ export function isRefreshRequest(request: Request) {
   const { searchParams } = new URL(request.url);
   const refresh = searchParams.get("refresh");
   return refresh === "true" || refresh === "1";
+}
+
+function logRefreshCooldown(
+  status: "allowed" | "blocked",
+  key: string,
+  resetAt: string
+) {
+  if (process.env.NODE_ENV !== "development") {
+    return;
+  }
+
+  console.error("[ALQIS security] refresh cooldown", {
+    status,
+    key,
+    resetAt,
+  });
 }

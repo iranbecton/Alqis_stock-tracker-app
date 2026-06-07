@@ -25,7 +25,13 @@ type DailyBriefResponse = DailyMarketBrief & {
   error?: string;
 };
 
-export function DailyBriefCard({ briefFocus = "balanced" }: { briefFocus?: BriefFocus }) {
+export function DailyBriefCard({
+  briefFocus = "balanced",
+  compact = false,
+}: {
+  briefFocus?: BriefFocus;
+  compact?: boolean;
+}) {
   const [brief, setBrief] = useState<DailyBriefResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -70,20 +76,20 @@ export function DailyBriefCard({ briefFocus = "balanced" }: { briefFocus?: Brief
     <Card
       variant="subtle"
       radius="xl"
-      className="border-accent-ai/14 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_84%,var(--accent-ai)_10%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-secondary)_4%)_100%)] shadow-[0_24px_60px_rgba(2,6,10,0.2)]"
+      className="border-[rgba(108,155,205,0.30)] bg-[radial-gradient(ellipse_at_12%_0%,rgba(117,231,220,0.10),transparent_38%),radial-gradient(ellipse_at_92%_16%,rgba(86,126,176,0.12),transparent_42%),linear-gradient(180deg,#1d2d3c_0%,#132230_55%,#0d1825_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.11),inset_0_0_0_1px_rgba(255,255,255,0.04),0_22px_56px_rgba(2,6,12,0.50),0_0_34px_rgba(117,231,220,0.06)]"
     >
-      <CardHeader className="mb-4">
+      <CardHeader className={compact ? "mb-3" : "mb-4"}>
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div className="min-w-0 space-y-2">
-            <CardEyebrow>
+          <div className={compact ? "min-w-0 space-y-1.5" : "min-w-0 space-y-2"}>
+            <CardEyebrow className="text-[var(--accent)]">
               <CalendarDays className="h-3.5 w-3.5" />
               Daily Market Brief
               <ExplainThis termId="daily-market-brief" compact />
             </CardEyebrow>
-            <CardTitle className="text-[1.35rem] sm:text-[1.65rem]">
+            <CardTitle className={compact ? "text-[1.12rem] text-[#f2f7ff] sm:text-[1.25rem]" : "text-[1.25rem] text-[#f2f7ff] sm:text-[1.5rem]"}>
               {brief ? getBriefDisplayHeadline(brief) : "Preparing market context"}
             </CardTitle>
-            <CardDescription className="text-body-sm leading-6">
+            <CardDescription className={compact ? "text-body-sm leading-5 text-[var(--ink-muted)]" : "text-body-sm leading-6 text-[var(--ink-muted)]"}>
               {brief
                 ? `${getBriefSupportCopy(brief)} Focus: ${formatFocusLabel(briefFocus)}.`
                 : "ALQIS is checking your saved names and available market data."}
@@ -105,7 +111,7 @@ export function DailyBriefCard({ briefFocus = "balanced" }: { briefFocus?: Brief
               size="sm"
               disabled={isRefreshing}
               onClick={() => void loadBrief(true)}
-              className="min-h-10"
+              className={compact ? "min-h-9" : "min-h-10"}
             >
               <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
               {isRefreshing ? "Refreshing..." : "Refresh"}
@@ -122,9 +128,9 @@ export function DailyBriefCard({ briefFocus = "balanced" }: { briefFocus?: Brief
             {error}
           </div>
         ) : brief ? (
-          <div className="space-y-4">
-            <div className="rounded-[var(--radius-lg)] border border-accent-ai/12 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-ai)_6%)] px-4 py-3.5 lg:px-5">
-              <p className="max-w-5xl text-body leading-7 text-ink-muted">
+          <div className={compact ? "space-y-3" : "space-y-4"}>
+            <div className={compact ? "rounded-[0.9rem] border border-[rgba(86,126,176,0.28)] bg-[rgba(7,17,30,0.72)] px-3.5 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]" : "rounded-[0.9rem] border border-[rgba(86,126,176,0.28)] bg-[rgba(7,17,30,0.72)] px-4 py-3.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] lg:px-5"}>
+              <p className={compact ? "max-w-5xl text-body-sm leading-6 text-[#d9e9ff]" : "max-w-5xl text-body leading-7 text-[#d9e9ff]"}>
                 {shortenSummary(brief.summary)}
               </p>
             </div>
@@ -139,7 +145,20 @@ export function DailyBriefCard({ briefFocus = "balanced" }: { briefFocus?: Brief
               </div>
             ) : null}
 
-            <div className="grid gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
+            {brief.portfolioNotes?.length ? (
+              <section className="rounded-[0.85rem] border border-[rgba(117,231,220,0.24)] bg-[rgba(117,231,220,0.07)] px-4 py-3">
+                <p className="section-kicker text-[var(--accent)]">Portfolio notes</p>
+                <ul className="mt-2 space-y-1.5">
+                  {brief.portfolioNotes.map((note) => (
+                    <li key={note} className="text-body-sm leading-5 text-[#d9e9ff]">
+                      {note}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ) : null}
+
+            <div className="grid gap-2.5 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]">
               <CompactSection title="Watchlist movers">
                 {brief.watchlistMovers.length ? (
                   <div className="flex flex-wrap gap-2">
@@ -161,6 +180,11 @@ export function DailyBriefCard({ briefFocus = "balanced" }: { briefFocus?: Brief
                         >
                           {formatPercent(mover.changePercent)}
                         </span>
+                        {mover.portfolioHeld ? (
+                          <span className="rounded-full border border-[rgba(117,231,220,0.24)] px-1.5 py-0.5 text-[0.68rem] text-[var(--accent)]">
+                            Tracked
+                          </span>
+                        ) : null}
                       </span>
                     ))}
                   </div>
@@ -180,7 +204,7 @@ export function DailyBriefCard({ briefFocus = "balanced" }: { briefFocus?: Brief
               </CompactSection>
             </div>
 
-            <p className="border-t border-border/60 pt-3 text-body-sm leading-6 text-ink-subtle">
+            <p className="border-t border-border/60 pt-2.5 text-body-sm leading-5 text-ink-subtle">
               ALQIS explanations are informational only and do not constitute investment advice.
             </p>
           </div>
@@ -198,9 +222,9 @@ function CompactSection({
   children: ReactNode;
 }) {
   return (
-    <section className="rounded-[var(--radius-lg)] border border-border/64 bg-[color-mix(in_srgb,var(--surface-elevated)_78%,var(--surface)_22%)] px-4 py-3">
+    <section className="rounded-[0.85rem] border border-[rgba(86,126,176,0.22)] bg-[rgba(7,17,30,0.68)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.035)]">
       <div className="flex flex-col gap-2">
-        <p className="section-kicker shrink-0 text-ink-subtle">{title}</p>
+        <p className="section-kicker shrink-0 text-[#7891ad]">{title}</p>
         <div className="min-w-0">{children}</div>
       </div>
     </section>

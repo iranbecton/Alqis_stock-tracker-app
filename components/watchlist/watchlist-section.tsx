@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Bookmark, ExternalLink, RefreshCw } from "lucide-react";
 import { ExplainThis } from "@/components/education/explain-this";
+import { AlertEntryButton } from "@/components/alerts/alert-entry-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,13 +15,14 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
 import { WatchlistRemoveButton } from "@/components/watchlist/watchlist-remove-button";
 import type { WatchlistIntelligenceItem } from "@/lib/watchlist/types";
 
 type WatchlistSectionProps = {
   initialItems: WatchlistIntelligenceItem[];
   initialError?: string;
+  compact?: boolean;
+  maxItems?: number;
 };
 
 type WatchlistIntelligenceResponse = {
@@ -31,12 +33,16 @@ type WatchlistIntelligenceResponse = {
 export function WatchlistSection({
   initialItems,
   initialError,
+  compact = false,
+  maxItems,
 }: WatchlistSectionProps) {
   const [items, setItems] = useState(initialItems);
   const [error, setError] = useState(initialError);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const allDataUnavailable =
     items.length > 0 && items.every((item) => item.dataState === "Data unavailable");
+  const visibleItems =
+    compact && maxItems ? items.slice(0, maxItems) : items;
 
   useEffect(() => {
     function handleRemoved(event: Event) {
@@ -90,25 +96,34 @@ export function WatchlistSection({
     }
   }
 
+  if (!items.length) {
+    return null;
+  }
+
   return (
     <Card
       variant="subtle"
       radius="xl"
-      className="border-accent-ai/16 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_84%,var(--accent-ai)_9%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-secondary)_4%)_100%)] shadow-[0_24px_60px_rgba(2,6,10,0.22)]"
+      className="border-[rgba(108,155,205,0.30)] bg-[radial-gradient(ellipse_at_12%_0%,rgba(117,231,220,0.12),transparent_38%),radial-gradient(ellipse_at_92%_16%,rgba(86,126,176,0.14),transparent_42%),linear-gradient(180deg,#1d2d3c_0%,#132230_55%,#0d1825_100%)] shadow-[inset_0_1px_0_rgba(255,255,255,0.13),inset_0_0_0_1px_rgba(255,255,255,0.05),0_28px_64px_rgba(2,6,12,0.62),0_0_42px_rgba(117,231,220,0.07)]"
     >
-      <CardHeader>
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <CardHeader className={compact ? "mb-3" : undefined}>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <CardEyebrow>
+            <CardEyebrow className="text-[var(--accent)]">
               <Bookmark className="h-3.5 w-3.5" />
               Watchlist Intelligence
               <ExplainThis termId="watchlist" compact />
             </CardEyebrow>
-            <CardTitle>Saved names, translated into reads.</CardTitle>
-            <CardDescription>
+            <CardTitle className={compact ? "text-[1.15rem]" : "text-[1.35rem]"}>Saved names, translated into reads.</CardTitle>
+            <CardDescription className={compact ? "mt-1 text-body-sm leading-5 text-[var(--ink-muted)]" : "text-[var(--ink-muted)]"}>
               Ticker cards combine price movement, data state, confidence, and
               a one-line ALQIS read.
             </CardDescription>
+            {compact && items.length > visibleItems.length ? (
+              <p className="mt-2 text-body-sm text-[#7891ad]">
+                Showing {visibleItems.length} of {items.length} saved names.
+              </p>
+            ) : null}
           </div>
 
           <Button
@@ -117,7 +132,7 @@ export function WatchlistSection({
             size="sm"
             disabled={isRefreshing}
             onClick={() => void refreshWatchlist()}
-            className="min-h-11 w-full sm:w-fit"
+            className={compact ? "min-h-9 w-full sm:w-fit" : "min-h-11 w-full sm:w-fit"}
           >
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? "animate-spin" : ""}`} />
             {isRefreshing ? "Updating reads..." : "Refresh reads"}
@@ -140,23 +155,16 @@ export function WatchlistSection({
 
         {isRefreshing && items.length === 0 ? (
           <WatchlistSkeleton />
-        ) : items.length ? (
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {items.map((item) => (
+        ) : (
+          <div className={compact ? "grid grid-cols-1 gap-2.5" : "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"}>
+            {visibleItems.map((item) => (
               <WatchlistIntelligenceCard
                 key={item.id}
                 item={item}
+                compact={compact}
               />
             ))}
           </div>
-        ) : (
-          <EmptyState
-            variant="compact"
-            icon={<Bookmark className="h-5 w-5" />}
-            title="Save tickers to build your first intelligence list."
-            description="ALQIS will track movement, context, and recent reads for names you follow."
-            className="rounded-[var(--radius-lg)] border border-dashed border-border/70 bg-surface/45 px-5 py-6"
-          />
         )}
       </CardContent>
     </Card>
@@ -165,31 +173,33 @@ export function WatchlistSection({
 
 function WatchlistIntelligenceCard({
   item,
+  compact = false,
 }: {
   item: WatchlistIntelligenceItem;
+  compact?: boolean;
 }) {
   return (
-    <article className="group min-w-0 rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_84%,var(--surface)_16%)] p-4 transition duration-[var(--duration-fast)] hover:border-accent-secondary/35 hover:bg-surface-elevated">
-      <div className="flex h-full min-w-0 flex-col gap-4">
+    <article className={`group min-w-0 rounded-[0.9rem] border border-[rgba(86,126,176,0.22)] bg-[rgba(7,17,30,0.72)] shadow-[inset_0_1px_0_rgba(255,255,255,0.04)] transition duration-[var(--duration-fast)] hover:border-[rgba(117,231,220,0.38)] hover:bg-[#102033] ${compact ? "p-3" : "p-4"}`}>
+      <div className={`flex h-full min-w-0 flex-col ${compact ? "gap-2.5" : "gap-4"}`}>
         <div className="grid min-w-0 gap-3 min-[430px]:grid-cols-[minmax(0,1fr)_auto] min-[430px]:items-start">
           <div className="min-w-0">
             <div className="flex min-w-0 flex-wrap items-center gap-2">
-              <p className="min-w-0 truncate text-lg font-semibold tracking-tight text-ink">
+              <p className={compact ? "min-w-0 truncate text-base font-semibold tracking-tight text-[#f2f7ff]" : "min-w-0 truncate text-lg font-semibold tracking-tight text-[#f2f7ff]"}>
                 {item.ticker}
               </p>
               <Badge variant={getDirectionBadgeVariant(item.direction)} size="sm">
                 {formatDirection(item.direction)}
               </Badge>
             </div>
-            <p className="mt-1 truncate text-body-sm font-medium text-ink-muted">
+            <p className="mt-1 truncate text-body-sm font-medium text-[#91a9c6]">
               {item.companyName ?? "Saved ticker"}
             </p>
-            <p className="mt-1 text-[0.78rem] leading-5 text-ink-subtle">
+            <p className={compact ? "mt-1 text-[0.72rem] leading-4 text-[#7891ad]" : "mt-1 text-[0.78rem] leading-5 text-[#7891ad]"}>
               {formatRefreshedAt(item.refreshedAt)}
             </p>
           </div>
           <div className="min-w-0 text-left min-[430px]:min-w-[7.25rem] min-[430px]:shrink-0 min-[430px]:text-right">
-            <p className="text-lg font-semibold tracking-tight text-ink" data-numeric>
+            <p className={compact ? "text-base font-semibold tracking-tight text-[#f2f7ff]" : "text-lg font-semibold tracking-tight text-[#f2f7ff]"} data-numeric>
               {formatCurrencyOrDash(item.currentPrice)}
             </p>
             <p className={getMoveClassName(item.direction)} data-numeric>
@@ -215,7 +225,7 @@ function WatchlistIntelligenceCard({
               {item.confidence ?? item.readStatus}
             </Badge>
           </div>
-          <p className="mt-4 overflow-hidden break-words text-body-sm leading-6 text-ink [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
+          <p className={`${compact ? "mt-2 leading-5 [-webkit-line-clamp:1]" : "mt-4 leading-6 [-webkit-line-clamp:2]"} overflow-hidden break-words text-body-sm text-[#d9e9ff] [display:-webkit-box] [-webkit-box-orient:vertical]`}>
             {item.providerStatus === "unavailable" ||
             item.dataState === "Data unavailable"
               ? "ALQIS could not verify a clear move yet."
@@ -223,13 +233,20 @@ function WatchlistIntelligenceCard({
           </p>
         </Link>
 
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-border/60 pt-3">
-          <Button asChild variant="quiet" size="sm" className="min-h-10 min-w-0">
+        <div className={compact ? "mt-auto flex items-center justify-between gap-3 border-t border-border/60 pt-2" : "mt-auto flex items-center justify-between gap-3 border-t border-border/60 pt-3"}>
+          <Button asChild variant="quiet" size="sm" className={compact ? "min-h-8 min-w-0" : "min-h-10 min-w-0"}>
             <Link href={`/stocks/${item.ticker}`}>
               <span className="truncate">Open read</span>
               <ExternalLink className="h-3.5 w-3.5" />
             </Link>
           </Button>
+          <AlertEntryButton
+            initialTicker={item.ticker}
+            initialCompanyName={item.companyName}
+            className={compact ? "min-h-8 min-w-0 px-3 text-sm" : "min-h-10 min-w-0 px-3 text-sm"}
+          >
+            Alert
+          </AlertEntryButton>
           <WatchlistRemoveButton ticker={item.ticker} />
         </div>
       </div>

@@ -192,7 +192,7 @@ export const alqisDemoData = {
       price: "$782.80",
       changePct: -1.18,
       summary:
-        "Healthcare is lagging today as capital rotates toward growth leadership despite the long-term thesis staying intact.",
+        "Healthcare is lagging today as capital rotates toward growth leadership while the long-term context remains mixed.",
       confidence: "B",
       points: [
         { label: "1", value: 806 },

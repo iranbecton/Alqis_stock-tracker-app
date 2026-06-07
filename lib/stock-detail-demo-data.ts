@@ -102,7 +102,7 @@ export const stockDetailDemoData = {
     quickFacts: [
       { label: "Narrative", value: "Demand-led" },
       { label: "Next catalyst", value: "Earnings in 30 days" },
-      { label: "Positioning", value: "Crowded but justified" },
+      { label: "Positioning", value: "Crowded with mixed positioning" },
     ] satisfies QuickFact[],
   },
   chartRanges: {
@@ -189,7 +189,7 @@ export const stockDetailDemoData = {
           time: "Apr 17, 10:15 AM ET",
           title: "Enterprise demand data held above expectations",
           explanation:
-            "Buy-side checks and enterprise commentary suggested accelerator demand stayed firm rather than normalizing lower.",
+            "Institutional checks and enterprise commentary suggested accelerator demand stayed firm rather than normalizing lower.",
           whyItMatters:
             "It reinforced that the five-day move is being carried by fundamental demand, not just technical squeeze dynamics.",
         },
@@ -252,7 +252,7 @@ export const stockDetailDemoData = {
       stats: [
         { label: "One-month leadership", value: "+15.4%" },
         { label: "Long-range context", value: "$391 - $994" },
-        { label: "Regime", value: "Leadership intact" },
+        { label: "Regime", value: "Leadership context" },
       ],
       footer:
         "Longer-term performance still reflects persistent AI infrastructure leadership, and the market is rewarding execution and demand visibility more than hype.",
@@ -324,7 +324,7 @@ export const stockDetailDemoData = {
       },
     ] satisfies EvidenceNote[],
     takeaway:
-      "If demand commentary holds through upcoming earnings, pullbacks are more likely to be treated as accumulation than a thesis break.",
+      "If demand commentary holds through upcoming earnings, the current read would have stronger evidence support.",
     changeTriggers: [
       "Hyperscaler or enterprise commentary shifts from capacity-constrained to budget-constrained.",
       "Sector breadth fades and suppliers stop confirming the move.",
@@ -422,8 +422,8 @@ export const stockDetailDemoData = {
       },
     ] satisfies SentimentPoint[],
     analystSummary:
-      "Street view stays constructive: 18 Buy, 7 Hold, 1 Reduce, with consensus still anchored to continued AI infrastructure leadership.",
-    targetPrice: "$1,045 median target",
+      "External analyst context remains focused on AI infrastructure durability, but ALQIS keeps that separate from the structured read.",
+    targetPrice: "External valuation context separated",
     sentimentBand: "Positive but demanding",
     alqisRead:
       "The weight of evidence still leans constructive, but the stock is expensive enough that execution matters more than story quality alone.",

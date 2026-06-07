@@ -3,6 +3,7 @@ import type { WhyMovingInputs, WhyMovingResponse } from "@/lib/ai/types";
 import { stableHash } from "@/lib/cache/keys";
 import type { ExplanationHistoryStatus } from "@/lib/explanations/types";
 import { normalizeTicker } from "@/lib/market-data/validation";
+import { extractTagFrequency } from '@/lib/ai/tags';
 
 type SaveExplanationInput = {
   supabase: SupabaseClient;
@@ -23,6 +24,7 @@ export async function saveExplanationHistory({
   explanation,
   inputs,
   explanationHash,
+
 }: SaveExplanationInput): Promise<SaveExplanationResult> {
   if (!user) {
     return { status: "skipped_logged_out" };
@@ -30,10 +32,13 @@ export async function saveExplanationHistory({
 
   const hash = explanationHash ?? createExplanationHash(explanation);
 
+    const tagFrequency = extractTagFrequency(
+        (inputs?.topCauses ?? []).map(c => ({ tag: c.tag, score: c.score }))
+    );
   try {
     const { data, error } = await supabase
       .from("stock_explanations")
-      .upsert(
+      .upsert (
         {
           user_id: user.id,
           ticker: normalizeTicker(explanation.ticker),
@@ -46,6 +51,7 @@ export async function saveExplanationHistory({
           source_count: explanation.sourceCount,
           key_factors: explanation.keyFactors,
           counterevidence: explanation.counterEvidence,
+            tag_frequency: tagFrequency,
           data_health: {
             chartStatus: inputs?.chartStatus,
             chartFallback: inputs?.chartFallback,

@@ -1,17 +1,5 @@
 import Link from "next/link";
-import { Clock3, ExternalLink } from "lucide-react";
-import { ExplainThis } from "@/components/education/explain-this";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardEyebrow,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { EmptyState } from "@/components/ui/empty-state";
+import { Clock3 } from "lucide-react";
 import type { ExplanationHistoryItem } from "@/lib/explanations/types";
 
 type RecentReadsSectionProps = {
@@ -19,105 +7,44 @@ type RecentReadsSectionProps = {
   title?: string;
   description?: string;
   compact?: boolean;
+  limit?: number;
 };
 
 export function RecentReadsSection({
   items,
-  title = "Recent ALQIS Reads",
-  description = "Saved structured explanations from your latest stock reads.",
-  compact = false,
+  limit,
 }: RecentReadsSectionProps) {
-  return (
-    <Card
-      variant="subtle"
-      radius="xl"
-      className="border-accent-ai/12 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-ai)_7%)_0%,color-mix(in_srgb,var(--surface)_94%,var(--accent-secondary)_3%)_100%)]"
-    >
-      <CardHeader>
-        <CardEyebrow>
-          <Clock3 className="h-3.5 w-3.5" />
-          Recent ALQIS Reads
-          <ExplainThis termId="recent-alqis-reads" compact />
-        </CardEyebrow>
-        <CardTitle>{title}</CardTitle>
-        <CardDescription>{description}</CardDescription>
-      </CardHeader>
+  const visibleItems = limit ? items.slice(0, limit) : items;
 
-      <CardContent>
-        {items.length ? (
-          <div className={compact ? "space-y-3" : "grid gap-3 lg:grid-cols-2"}>
-            {items.map((item) => (
-              <article
-                key={item.id}
-                className="rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--surface)_18%)] p-4"
-              >
-                <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between">
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="ai" size="sm" className="normal-case tracking-normal">
-                        Past ALQIS read
-                      </Badge>
-                      {item.confidenceLabel ? (
-                        <Badge variant="outline" size="sm" className="normal-case tracking-normal">
-                          {item.confidenceLabel}
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <h3 className="mt-3 text-lg font-semibold tracking-tight text-ink">
-                      {item.ticker}
-                    </h3>
-                    <p className="mt-1 text-body-sm text-ink-muted">
-                      {item.companyName ?? "Saved market read"} - {item.timeframe}
-                    </p>
-                  </div>
-                  <time className="shrink-0 text-body-sm text-ink-subtle">
-                    {formatHistoryTime(item.generatedAt)}
-                  </time>
-                </div>
-
-                <p className="mt-4 overflow-hidden break-words text-body-sm leading-6 text-ink [display:-webkit-box] [-webkit-box-orient:vertical] [-webkit-line-clamp:2]">
-                  {item.summary}
-                </p>
-
-                <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-border/60 pt-3">
-                  <span className="text-body-sm text-ink-subtle">
-                    {item.sourceCount ?? 0} sources
-                  </span>
-                  <Button asChild variant="quiet" size="sm" className="min-h-10">
-                    <Link href={`/stocks/${item.ticker}`}>
-                      Open stock
-                      <ExternalLink className="h-3.5 w-3.5" />
-                    </Link>
-                  </Button>
-                </div>
-              </article>
-            ))}
-          </div>
-        ) : (
-          <EmptyState
-            variant="compact"
-            icon={<Clock3 className="h-5 w-5" />}
-            title="No saved reads yet."
-            description="Recent ALQIS Reads will appear after you explain a stock move."
-            className="rounded-[var(--radius-lg)] border border-dashed border-border/70 bg-surface/45 px-5 py-6"
-          />
-        )}
-      </CardContent>
-    </Card>
-  );
-}
-
-function formatHistoryTime(value: string) {
-  const timestamp = new Date(value);
-
-  if (Number.isNaN(timestamp.getTime())) {
-    return "Recently generated";
+  if (!visibleItems.length) {
+    return null;
   }
 
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  }).format(timestamp);
+  return (
+    <section className="rounded-[1.05rem] border border-[rgba(108,155,205,0.24)] bg-[radial-gradient(circle_at_8%_0%,rgba(117,231,220,0.055),transparent_30%),linear-gradient(180deg,#102032_0%,#07111d_100%)] px-4 py-3 shadow-[inset_0_1px_0_rgba(255,255,255,0.045),0_8px_22px_rgba(0,0,0,0.28)]">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center">
+        <p className="section-kicker flex shrink-0 items-center gap-2 text-[#86b7d4]">
+          <Clock3 className="h-3.5 w-3.5 text-[var(--accent)]" />
+          RECENT
+        </p>
+        <div className="scrollbar-dark -mx-1 flex gap-2 overflow-x-auto px-1">
+          {visibleItems.map((item) => (
+            <Link
+              key={item.id}
+              href={`/stocks/${item.ticker}`}
+              className="inline-flex min-h-9 shrink-0 items-center gap-2 rounded-full border border-[rgba(117,231,220,0.24)] bg-[rgba(7,17,30,0.66)] px-3 text-[0.78rem] font-semibold text-[#d9e9ff] transition hover:border-[rgba(117,231,220,0.45)] hover:text-[#f4f8ff]"
+            >
+              <span>{item.ticker}</span>
+              {item.confidenceLabel ? (
+                <>
+                  <span className="h-1 w-1 rounded-full bg-[var(--accent)]" aria-hidden />
+                  <span className="text-[#a7b7cc]">{item.confidenceLabel}</span>
+                </>
+              ) : null}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
 }

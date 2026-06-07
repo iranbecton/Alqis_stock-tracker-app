@@ -3,6 +3,8 @@ import type { ChartRange } from "@/lib/market-data/types";
 const TICKER_PATTERN = /^[A-Z][A-Z0-9.-]{0,9}$/;
 const CHART_RANGES = ["1D", "5D", "1M"] as const;
 const MAX_SEARCH_QUERY_LENGTH = 64;
+const UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export type ExplainRequestValidation = {
   ticker: string;
@@ -61,6 +63,71 @@ export function validateSearchQuery(value: unknown) {
   return {
     ok: true as const,
     query,
+  };
+}
+
+export async function parseJsonObject(request: Request):
+  Promise<{ ok: true; value: Record<string, unknown> } | { ok: false; error: string }> {
+  try {
+    const body = await request.json();
+
+    if (!body || typeof body !== "object" || Array.isArray(body)) {
+      return { ok: false, error: "Request body must be an object." };
+    }
+
+    return { ok: true, value: body as Record<string, unknown> };
+  } catch {
+    return { ok: false, error: "Invalid JSON body." };
+  }
+}
+
+export function validateUuid(value: unknown) {
+  const id = typeof value === "string" ? value.trim() : "";
+
+  return {
+    ok: UUID_PATTERN.test(id),
+    id,
+  };
+}
+
+export function validatePositiveIntegerLimit(
+  value: unknown,
+  { defaultValue, max }: { defaultValue: number; max: number }
+) {
+  const parsed =
+    typeof value === "string" && value.trim() ? Number(value) : defaultValue;
+
+  if (!Number.isFinite(parsed)) {
+    return defaultValue;
+  }
+
+  return Math.min(Math.max(Math.floor(parsed), 1), max);
+}
+
+export function validateWatchlistBody(body: unknown):
+  | { ok: true; value: { ticker: string; companyName: string | null } }
+  | { ok: false; error: string } {
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return { ok: false, error: "Request body must be an object." };
+  }
+
+  const record = body as Record<string, unknown>;
+  const ticker = validateTicker(record.ticker);
+  const companyName =
+    typeof record.companyName === "string" && record.companyName.trim()
+      ? record.companyName.trim()
+      : null;
+
+  if (!ticker.ok) {
+    return { ok: false, error: "Body must include a valid ticker." };
+  }
+
+  return {
+    ok: true,
+    value: {
+      ticker: ticker.ticker,
+      companyName,
+    },
   };
 }
 

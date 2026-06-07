@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { withCache } from "@/lib/cache";
 import { searchCacheKey } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
+import {
+  recordCacheOutcome,
+  recordRefreshCooldown,
+  recordRouteEvent,
+} from "@/lib/diagnostics/observability";
 import { rateLimitedResponse, normalizedApiError } from "@/lib/errors/api-error";
 import { searchFinnhubSymbols } from "@/lib/market-data/finnhub";
 import { normalizeTicker } from "@/lib/market-data/validation";
@@ -10,6 +15,8 @@ import {
   isRefreshRequest,
   rateLimit,
   RATE_LIMITS,
+  refreshCooldown,
+  REFRESH_COOLDOWNS,
 } from "@/lib/security/rate-limit";
 import { validateSearchQuery } from "@/lib/security/validation";
 import { stockUniverse } from "@/lib/stocks/stock-universe";
@@ -35,6 +42,7 @@ const US_EXCHANGE_HINTS = [
   "XNYS",
   "BATS",
 ];
+const ROUTE = "/api/search/stocks";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -43,16 +51,35 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const validatedQuery = validateSearchQuery(searchParams.get("q"));
   const forceRefresh = isRefreshRequest(request);
+  recordRouteEvent({
+    category: "route_request",
+    route: ROUTE,
+    method: "GET",
+    refreshRequested: forceRefresh,
+  });
   const limit = await rateLimit(
     getRateLimitKey(request, null, forceRefresh ? "search-refresh" : "search"),
     forceRefresh ? RATE_LIMITS.searchRefresh : RATE_LIMITS.search
   );
 
   if (!limit.allowed) {
+    recordRouteEvent({
+      category: "rate_limit_blocked",
+      route: ROUTE,
+      method: "GET",
+      status: "blocked",
+      refreshRequested: forceRefresh,
+    });
     return rateLimitedResponse(limit.resetAt);
   }
 
   if (!validatedQuery.ok) {
+    recordRouteEvent({
+      category: "validation_failed",
+      route: ROUTE,
+      method: "GET",
+      reason: "invalid_search_query",
+    });
     return normalizedApiError({
       code: "VALIDATION_ERROR",
       message: validatedQuery.error,
@@ -69,12 +96,46 @@ export async function GET(request: Request) {
     });
   }
 
+  const refreshWindow = forceRefresh
+    ? await refreshCooldown(
+        getRateLimitKey(
+          request,
+          null,
+          `search-refresh-window:${query.toLowerCase()}`
+        ),
+        REFRESH_COOLDOWNS.search
+      )
+    : { allowed: true };
+  recordRefreshCooldown({
+    route: ROUTE,
+    requested: forceRefresh,
+    allowed: refreshWindow.allowed,
+    method: "GET",
+  });
+  const effectiveForceRefresh = forceRefresh && refreshWindow.allowed;
+
   const { data, meta } = await withCache(
     searchCacheKey(query),
     CACHE_TTL.search,
     () => searchStocks(query),
-    { forceRefresh }
+    { forceRefresh: effectiveForceRefresh }
   );
+  recordCacheOutcome(ROUTE, meta, {
+    method: "GET",
+    refreshRequested: forceRefresh,
+    refreshAllowed: effectiveForceRefresh,
+    status: data.providerStatus,
+  });
+
+  if (data.providerStatus === "fallback") {
+    recordRouteEvent({
+      category: "provider_fallback",
+      route: ROUTE,
+      method: "GET",
+      provider: "finnhub",
+      reason: "curated_universe",
+    });
+  }
 
   return NextResponse.json({
     ...data,

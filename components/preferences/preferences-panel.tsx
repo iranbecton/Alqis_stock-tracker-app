@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardEyebrow,
   CardHeader,
   CardTitle,
@@ -17,7 +16,6 @@ import { Input } from "@/components/ui/input";
 import {
   briefFocusOptions,
   chartRanges,
-  experienceLevels,
   type UserPreferences,
 } from "@/lib/preferences/types";
 
@@ -52,7 +50,6 @@ export function PreferencesPanel({
         body: JSON.stringify({
           defaultTicker: draft.defaultTicker,
           defaultChartRange: draft.defaultChartRange,
-          experienceLevel: draft.experienceLevel,
           briefFocus: draft.briefFocus,
           showEducationTips: draft.showEducationTips,
         }),
@@ -78,131 +75,136 @@ export function PreferencesPanel({
   }
 
   return (
-    <Card variant="subtle" radius="xl" className="border-border/72">
-      <CardHeader>
+    <Card
+      variant="subtle"
+      radius="xl"
+      className="border-border/48 bg-surface/34 shadow-[inset_0_1px_0_rgba(255,255,255,0.015),0_8px_22px_rgba(2,6,10,0.08)]"
+    >
+      <CardHeader className="mb-3">
         <CardEyebrow>
           <SlidersHorizontal className="h-3.5 w-3.5" />
           Preferences
         </CardEyebrow>
-        <CardTitle>Personalize the reading surface.</CardTitle>
-        <CardDescription>
-          Lightweight defaults for how ALQIS opens charts, briefs, and education cues.
-        </CardDescription>
+        <CardTitle className="text-[1.2rem] sm:text-[1.35rem]">
+          Reading preferences
+        </CardTitle>
       </CardHeader>
 
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Default ticker" htmlFor="default-ticker">
-              <Input
-                id="default-ticker"
-                value={draft.defaultTicker}
-                maxLength={6}
-                autoComplete="off"
+        <details className="group">
+          <summary className="flex min-h-12 cursor-pointer list-none flex-col gap-3 rounded-[var(--radius-lg)] border border-border/58 bg-surface/30 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-ink">
+                Lightweight defaults for chart range, brief focus, and education cues.
+              </p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <Badge variant="outline" size="sm" className="normal-case tracking-normal">
+                  Default: {preferences.defaultTicker}
+                </Badge>
+                <Badge variant="ai" size="sm" className="normal-case tracking-normal">
+                  {formatOptionLabel(preferences.briefFocus)} brief
+                </Badge>
+              </div>
+            </div>
+            <span className="shrink-0 rounded-full border border-border/60 bg-surface/42 px-3 py-1.5 text-body-sm font-medium text-ink-muted transition group-open:text-ink">
+              Edit
+            </span>
+          </summary>
+
+          <form onSubmit={handleSubmit} className="mt-4 space-y-4">
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="Default ticker" htmlFor="default-ticker">
+                <Input
+                  id="default-ticker"
+                  value={draft.defaultTicker}
+                  maxLength={5}
+                  autoComplete="off"
+                  onChange={(event) =>
+                    setDraft((current) => ({
+                      ...current,
+                      defaultTicker: event.target.value.toUpperCase(),
+                    }))
+                  }
+                />
+              </Field>
+
+              <Field label="Chart range" htmlFor="default-chart-range">
+                <Select
+                  id="default-chart-range"
+                  value={draft.defaultChartRange}
+                  onChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      defaultChartRange: value as UserPreferences["defaultChartRange"],
+                    }))
+                  }
+                >
+                  {chartRanges.map((range) => (
+                    <option key={range} value={range}>
+                      {range}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+
+              <Field label="Daily brief focus" htmlFor="brief-focus">
+                <Select
+                  id="brief-focus"
+                  value={draft.briefFocus}
+                  onChange={(value) =>
+                    setDraft((current) => ({
+                      ...current,
+                      briefFocus: value as UserPreferences["briefFocus"],
+                    }))
+                  }
+                >
+                  {briefFocusOptions.map((focus) => (
+                    <option key={focus} value={focus}>
+                      {formatOptionLabel(focus)}
+                    </option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+
+            <label className="flex min-h-12 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-surface/42 px-4 py-3">
+              <span>
+                <span className="block text-sm font-medium text-ink">Education tips</span>
+                <span className="mt-1 block text-body-sm text-ink-muted">
+                  Show lightweight learning cues and encyclopedia links.
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={draft.showEducationTips}
                 onChange={(event) =>
                   setDraft((current) => ({
                     ...current,
-                    defaultTicker: event.target.value.toUpperCase(),
+                    showEducationTips: event.target.checked,
                   }))
                 }
+                className="h-5 w-5 accent-[var(--accent-primary)]"
               />
-            </Field>
+            </label>
 
-            <Field label="Chart range" htmlFor="default-chart-range">
-              <Select
-                id="default-chart-range"
-                value={draft.defaultChartRange}
-                onChange={(value) =>
-                  setDraft((current) => ({
-                    ...current,
-                    defaultChartRange: value as UserPreferences["defaultChartRange"],
-                  }))
-                }
-              >
-                {chartRanges.map((range) => (
-                  <option key={range} value={range}>
-                    {range}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            <Field label="Explanation level" htmlFor="experience-level">
-              <Select
-                id="experience-level"
-                value={draft.experienceLevel}
-                onChange={(value) =>
-                  setDraft((current) => ({
-                    ...current,
-                    experienceLevel: value as UserPreferences["experienceLevel"],
-                  }))
-                }
-              >
-                {experienceLevels.map((level) => (
-                  <option key={level} value={level}>
-                    {formatOptionLabel(level)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-
-            <Field label="Daily brief focus" htmlFor="brief-focus">
-              <Select
-                id="brief-focus"
-                value={draft.briefFocus}
-                onChange={(value) =>
-                  setDraft((current) => ({
-                    ...current,
-                    briefFocus: value as UserPreferences["briefFocus"],
-                  }))
-                }
-              >
-                {briefFocusOptions.map((focus) => (
-                  <option key={focus} value={focus}>
-                    {formatOptionLabel(focus)}
-                  </option>
-                ))}
-              </Select>
-            </Field>
-          </div>
-
-          <label className="flex min-h-12 items-center justify-between gap-3 rounded-[var(--radius-lg)] border border-border/70 bg-surface/42 px-4 py-3">
-            <span>
-              <span className="block text-sm font-medium text-ink">Education tips</span>
-              <span className="mt-1 block text-body-sm text-ink-muted">
-                Show lightweight learning cues and encyclopedia links.
-              </span>
-            </span>
-            <input
-              type="checkbox"
-              checked={draft.showEducationTips}
-              onChange={(event) =>
-                setDraft((current) => ({
-                  ...current,
-                  showEducationTips: event.target.checked,
-                }))
-              }
-              className="h-5 w-5 accent-[var(--accent-primary)]"
-            />
-          </label>
-
-          <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex flex-wrap gap-2">
-              <Badge variant="outline" size="sm" className="normal-case tracking-normal">
-                Default: {preferences.defaultTicker}
-              </Badge>
-              <Badge variant="ai" size="sm" className="normal-case tracking-normal">
-                {formatOptionLabel(preferences.briefFocus)} brief
-              </Badge>
+            <div className="flex flex-col gap-3 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-wrap gap-2">
+                <Badge variant="outline" size="sm" className="normal-case tracking-normal">
+                  Default: {preferences.defaultTicker}
+                </Badge>
+                <Badge variant="ai" size="sm" className="normal-case tracking-normal">
+                  {formatOptionLabel(preferences.briefFocus)} brief
+                </Badge>
+              </div>
+              <Button type="submit" variant="secondary" size="sm" disabled={isSaving}>
+                {isSaving ? "Saving..." : "Save preferences"}
+              </Button>
             </div>
-            <Button type="submit" variant="secondary" size="sm" disabled={isSaving}>
-              {isSaving ? "Saving..." : "Save preferences"}
-            </Button>
-          </div>
 
-          {status ? <p className="text-body-sm text-accent-secondary">{status}</p> : null}
-          {error ? <p className="text-body-sm text-warn">{error}</p> : null}
-        </form>
+            {status ? <p className="text-body-sm text-accent-secondary">{status}</p> : null}
+            {error ? <p className="text-body-sm text-warn">{error}</p> : null}
+          </form>
+        </details>
       </CardContent>
     </Card>
   );

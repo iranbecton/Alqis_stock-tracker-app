@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
@@ -13,6 +14,16 @@ function logAuthError(message: string, error?: unknown) {
   if (process.env.NODE_ENV === "development") {
     console.error(`[ALQIS auth] ${message}`, error ?? "");
   }
+}
+
+async function getAuthCallbackUrl() {
+  const headerStore = await headers();
+  const origin =
+    headerStore.get("origin") ??
+    process.env.NEXT_PUBLIC_SITE_URL ??
+    "http://localhost:3000";
+
+  return new URL("/auth/callback", origin).toString();
 }
 
 export async function signUpAction(formData: FormData) {
@@ -39,6 +50,9 @@ export async function signUpAction(formData: FormData) {
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
+    options: {
+      emailRedirectTo: await getAuthCallbackUrl(),
+    },
   });
 
   if (error) {
@@ -52,10 +66,10 @@ export async function signUpAction(formData: FormData) {
       withStatus(
         "/signup",
         "success",
-        "Account created. Check your email to confirm."
+        "Check your email to confirm your account. After confirmation, ALQIS will help you tune your profile."
       )
     );
   }
 
-  redirect("/dashboard");
+  redirect("/onboarding");
 }

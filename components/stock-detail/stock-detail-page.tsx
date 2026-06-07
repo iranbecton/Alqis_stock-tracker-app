@@ -1,22 +1,14 @@
-import type { ReactNode } from "react";
-import { AlertTriangle, Newspaper, Radar, Scale, TrendingUp } from "lucide-react";
-import { SparklineChart } from "@/components/alqis/sparkline-chart";
+import Link from "next/link";
+import { AlertTriangle, MoreVertical } from "lucide-react";
+import { AlertsNavLink } from "@/components/alerts/alerts-nav-link";
+import { StockAlertEntryButton } from "@/components/alerts/stock-alert-entry-button";
 import { AlqisLogo } from "@/components/brand/alqis-logo";
-import { ExplainThis } from "@/components/education/explain-this";
-import { RecentReadsSection } from "@/components/explanations/recent-reads-section";
+import { TickerSearch } from "@/components/stocks/ticker-search";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardEyebrow,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Delta } from "@/components/ui/delta";
 import { Disclaimer } from "@/components/ui/disclaimer";
-import { PageContainer, PageSection, PageShell } from "@/components/ui/layout";
-import { SectionHeader } from "@/components/ui/section-header";
+import { PageContainer, PageShell } from "@/components/ui/layout";
+import { WatchlistToggle } from "@/components/watchlist/watchlist-toggle";
 import { stockDetailDemoData } from "@/lib/stock-detail-demo-data";
 import type {
   ChartPoint as MarketChartPoint,
@@ -35,10 +27,9 @@ import type {
 import type { DemoStock } from "@/lib/stocks/demo-stocks";
 import { getDemoStockBySymbol } from "@/lib/stocks/demo-stocks";
 import type { ExplanationHistoryItem } from "@/lib/explanations/types";
+import type { UserChartRange } from "@/lib/preferences/types";
 import type { StockDataHealth } from "@/lib/stocks/stock-data-health";
-import { StockChartCard } from "./stock-chart-card";
-import { StockHeroHeader } from "./stock-hero-header";
-import { StockWhyCard } from "./stock-why-card";
+import { StockIntelligenceNavigator } from "./stock-intelligence-navigator";
 
 type StockDetailCompanyData = typeof stockDetailDemoData.company & {
   quoteStats?: Array<{
@@ -55,6 +46,9 @@ type StockDetailExplanationData = typeof stockDetailDemoData.explanation & {
   wordingDetail?: string;
   plainEnglishRead?: string;
   aiWhyItMatters?: string[];
+  movePct?: number;
+  confidenceScore?: number;
+  confidenceBand?: string;
 };
 
 type StockDetailData = Omit<typeof stockDetailDemoData, "company" | "explanation"> & {
@@ -102,7 +96,7 @@ type StockDetailPageProps = {
   aiWordingFailureReason?: AIWordingFailureReason;
   isWatchlisted?: boolean;
   recentReads?: ExplanationHistoryItem[];
-  defaultChartRange?: "1D" | "5D" | "1M";
+  defaultChartRange?: UserChartRange;
 };
 
 export function StockDetailPage({
@@ -111,8 +105,6 @@ export function StockDetailPage({
   explanation,
   aiWording,
   aiWordingStatus,
-  aiWordingProvider,
-  aiWordingFailureReason,
   isWatchlisted = false,
   recentReads = [],
   defaultChartRange = "1D",
@@ -123,99 +115,267 @@ export function StockDetailPage({
         marketData,
         explanation,
         aiWording,
-        aiWordingStatus,
-        aiWordingProvider,
-        aiWordingFailureReason
+        aiWordingStatus
       )
     : stockDetailDemoData;
   const shouldShowProviderNotice =
     marketData?.providerState === "fallback" || marketData?.providerState === "empty";
 
   return (
-    <main className="min-h-dvh">
+    <main className="alqis-stock-shell">
       <TopBar />
 
-      <PageContainer className="max-w-[90rem]">
-        <PageShell className="gap-5 pt-2 pb-7 lg:gap-6">
-          <PageSection className="gap-4 rounded-[var(--radius-2xl)] border border-border/60 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface)_84%,var(--surface-alt)_16%)_0%,color-mix(in_srgb,var(--background)_90%,var(--surface)_10%)_100%)] p-4 shadow-elevation-2 sm:p-5 lg:gap-4 lg:p-5">
-            <StockHeroHeader
-              company={data.company}
-              asOf={data.asOf}
-              watchlist={{
-                initialSaved: isWatchlisted,
-                ticker: data.company.symbol,
-                companyName: data.company.name,
-              }}
-            />
+      <PageContainer className="max-w-[116rem]">
+        <PageShell className="gap-2 pt-1 pb-8 lg:gap-2">
+          <ReferenceStockCommandHeader
+            data={data}
+            asOf={data.asOf}
+            isWatchlisted={isWatchlisted}
+            recentReads={recentReads}
+            dataHealth={marketData?.dataHealth}
+          />
 
-            <div className="space-y-1">
-              <p className="section-kicker text-accent-ai">Explanation first / proof second</p>
-              <p className="max-w-[58rem] text-body text-ink-muted">
-                ALQIS starts with why this moved, then tests the read against
-                price action, news context, and counterevidence in one pass.
+          {shouldShowProviderNotice ? (
+            <div className="relative flex gap-3 border border-warn/22 bg-warn-bg/24 px-4 py-3 text-body-sm text-ink-muted">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
+              <p>
+                {marketData?.providerMessage ??
+                  "Market data is partially available. ALQIS is labeling missing provider context instead of filling the page with unsupported evidence."}
               </p>
             </div>
+          ) : null}
 
-            {marketData?.dataHealth ? (
-              <DataHealthStrip health={marketData.dataHealth} />
-            ) : null}
+          <StockIntelligenceNavigator
+            data={data}
+            dataHealth={marketData?.dataHealth}
+            recentReads={recentReads}
+            defaultChartRange={toStockDetailChartRange(defaultChartRange)}
+          />
 
-            {shouldShowProviderNotice ? (
-              <div className="flex gap-3 rounded-[var(--radius-lg)] border border-warn/18 bg-warn-bg/28 px-4 py-3 text-body-sm text-ink-muted">
-                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warn" />
-                <p>
-                  {marketData?.providerMessage ??
-                    "Market data is partially available. ALQIS is labeling missing provider context instead of filling the page with unsupported evidence."}
-                </p>
-              </div>
-            ) : null}
-
-            <div className="grid gap-5 xl:grid-cols-[minmax(26rem,0.98fr)_minmax(0,1.02fr)] xl:items-start xl:gap-6">
-              <StockWhyCard data={data} />
-              <div className="space-y-5">
-                <StockChartCard
-                  data={data}
-                  defaultRange={toStockDetailChartRange(defaultChartRange)}
-                />
-              </div>
-            </div>
-
-            <Disclaimer
-              variant="banner"
-              className="rounded-[var(--radius-lg)] border-accent-ai/8 bg-[color-mix(in_srgb,var(--surface-elevated)_80%,var(--accent-ai)_5%)]"
-            />
-          </PageSection>
-
-          <PageSection className="rounded-[var(--radius-2xl)] border border-border/50 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface)_72%,var(--surface-elevated)_28%)_0%,color-mix(in_srgb,var(--background)_86%,var(--surface)_14%)_100%)] p-4 pt-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.02),0_18px_48px_rgba(2,6,10,0.14)] sm:p-5">
-            <SectionHeader
-              eyebrow="Data third"
-              title="Supporting intelligence for the read."
-              description="Metrics, news, evidence balance, and peer read-through stay organized around whether the ALQIS Read holds up."
-              className="gap-3"
-            />
-
-            {recentReads.length ? (
-              <RecentReadsSection
-                items={recentReads}
-                title={`Recent reads for ${data.company.symbol}`}
-                description="Past ALQIS reads are saved history, not the current live market read."
-                compact
-              />
-            ) : null}
-
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <KeyMetricsCard data={data} />
-              <SignalBalanceCard data={data} />
-            </div>
-
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
-              <TopNewsCard data={data} />
-              <PeerComparisonCard data={data} />
-            </div>
-          </PageSection>
+          <Disclaimer
+            variant="banner"
+            className="relative rounded-[0.9rem] border-accent-ai/12 bg-[#07111f]/62 px-3 py-2"
+          />
         </PageShell>
       </PageContainer>
     </main>
+  );
+}
+
+function ReferenceStockCommandHeader({
+  data,
+  asOf,
+  isWatchlisted,
+  recentReads,
+  dataHealth,
+}: {
+  data: StockDetailData;
+  asOf: string;
+  isWatchlisted: boolean;
+  recentReads: ExplanationHistoryItem[];
+  dataHealth?: StockDataHealth;
+}) {
+  const latestRead = recentReads.find((read) => read.ticker === data.company.symbol);
+  const isPositive = data.company.dailyChangePct >= 0;
+  const quoteTiles = [
+    {
+      label: "Latest data",
+      value: asOf,
+      detail: data.company.priceReadLabel ?? "Market delayed",
+    },
+    {
+      label: "Open",
+      value: getQuoteStatValue(data, "Open"),
+      detail: data.company.quoteSourceLabel ?? "Quote source",
+    },
+    {
+      label: "High",
+      value: getQuoteStatValue(data, "High"),
+      detail: "Session high",
+    },
+    {
+      label: "Low",
+      value: getQuoteStatValue(data, "Low"),
+      detail: "Session low",
+    },
+    {
+      label: "Previous close",
+      value: getQuoteStatValue(data, "Prev close"),
+      detail: "Reference close",
+    },
+    {
+      label: "Status",
+      value: dataHealth?.userFacingLabel ?? data.company.marketStatus,
+      detail: data.company.quoteSourceLabel ?? "Provider status",
+    },
+  ];
+
+  return (
+    <section className="relative overflow-hidden border border-[#47739f]/70 bg-[radial-gradient(circle_at_14%_28%,rgba(128,217,225,0.25),transparent_17rem),radial-gradient(circle_at_34%_54%,rgba(71,209,198,0.17),transparent_18rem),radial-gradient(circle_at_87%_18%,rgba(72,144,255,0.21),transparent_22rem),linear-gradient(145deg,#132d48,#071322_48%,#050b14_100%)] p-3 shadow-[0_38px_120px_rgba(0,0,0,0.66),0_0_100px_rgba(47,128,200,0.18),inset_0_1px_0_rgba(220,244,255,0.22),inset_0_-32px_78px_rgba(3,7,13,0.46)] xl:grid xl:grid-cols-[minmax(0,1fr)_30rem]">
+      <div className="pointer-events-none absolute -left-24 top-2 h-44 w-80 rounded-full bg-[#7bdcd5]/12 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 right-12 h-32 w-96 rounded-full bg-[#4d86ff]/10 blur-3xl" />
+      <div className="pointer-events-none absolute -top-10 left-20 h-24 w-[54rem] rotate-[-5deg] bg-[linear-gradient(90deg,transparent,rgba(178,231,255,0.13),transparent)] blur-xl" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-[#b9e8ff]/82 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-6 bottom-0 h-px bg-gradient-to-r from-transparent via-[#3f75a6]/80 to-transparent" />
+
+      <div className="relative min-w-0 xl:border-r xl:border-[#315a83]/55 xl:pr-4">
+        <div className="min-w-0">
+          <div className="grid gap-2 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-start">
+            <div className="flex min-w-0 items-start gap-2.5">
+              <div className="grid h-14 w-14 shrink-0 place-items-center rounded-lg border border-[#5380ad] bg-[linear-gradient(145deg,#244a74,#0b1727)] text-base font-black text-white shadow-[0_0_42px_rgba(78,147,227,0.34),inset_0_1px_0_rgba(190,233,255,0.14)]">
+                {data.company.symbol.slice(0, 2)}
+              </div>
+              <div className="min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <h1 className="font-serif text-[3.55rem] font-semibold leading-none tracking-[-0.04em] text-[#f2f6ff] sm:text-[4.35rem]">
+                    {data.company.symbol}
+                  </h1>
+                  <span className="border border-[#2f72d5]/24 bg-[#07111f] px-2 py-1 text-[0.64rem] font-bold uppercase tracking-[0.18em] text-[#7fa6d8]">
+                    {data.company.exchange}
+                  </span>
+                  <Badge variant="ai" size="sm" className="border-accent-ai/20 bg-accent-ai/10 text-[#cdd8ff]">
+                    ALQIS Read active
+                  </Badge>
+                </div>
+                <p className="mt-1 text-sm text-[#8ea3bf]">
+                  {data.company.name} / {data.company.sector}
+                </p>
+                <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+                  <span
+                    className={`inline-flex items-center gap-1.5 border px-2 py-1 font-semibold ${
+                      isPositive
+                        ? "border-gain/24 bg-gain/8 text-gain"
+                        : "border-loss/24 bg-loss/8 text-loss"
+                    }`}
+                  >
+                    <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                    {data.company.priceReadLabel ?? "Market delayed"}
+                  </span>
+                  <span className="border border-[#2f72d5]/18 bg-[#07111f]/82 px-2 py-1 font-semibold text-[#9eb2cd]">
+                    {data.company.quoteSourceLabel ?? "Data limited"}
+                  </span>
+                  <InlineDataStatus health={dataHealth} />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex shrink-0 flex-wrap items-start gap-2 lg:justify-end">
+              <WatchlistToggle
+                ticker={data.company.symbol}
+                companyName={data.company.name}
+                initialSaved={isWatchlisted}
+              />
+              <StockAlertEntryButton
+                mode="icon"
+                initialTicker={data.company.symbol}
+                initialCompanyName={data.company.name}
+              />
+              <button
+                type="button"
+                className="grid h-10 w-10 place-items-center border border-[#2f72d5]/20 bg-[#07111f]/72 text-[#b8c8df] transition hover:border-[#4f9bff]/42 hover:text-[#eef6ff]"
+                aria-label="More stock actions"
+              >
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-2 flex flex-col gap-2 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+              <p className="font-serif text-[5.1rem] font-semibold leading-none tracking-[-0.045em] text-[#f5f8ff] sm:text-[6.3rem]" data-numeric>
+                {data.company.price}
+              </p>
+              <Delta
+                value={data.company.dailyChangePct}
+                absoluteChange={data.company.dailyChange}
+                format="both"
+                size="lg"
+                className="text-2xl font-bold drop-shadow-[0_0_16px_rgba(99,207,168,0.26)]"
+              />
+            </div>
+            <p className="max-w-3xl border-l border-[#5aa6d6] bg-[linear-gradient(90deg,rgba(13,39,64,0.92),rgba(7,20,35,0.52))] px-3 py-2 text-[0.88rem] font-medium leading-6 text-[#b7c8dc]">
+              {data.company.oneLineSummary}
+            </p>
+          </div>
+
+          <div className="mt-2 grid gap-px overflow-hidden border border-[#28466f]/54 bg-[#28466f]/54 sm:grid-cols-4">
+            <CompactHeaderMetric
+              label="Last read"
+              value={latestRead ? formatDateTime(latestRead.generatedAt) : "No saved read"}
+            />
+            <CompactHeaderMetric
+              label="Confidence"
+              value={latestRead?.confidenceLabel ?? data.explanation.confidenceSummary.split(".")[0] ?? "Read pending"}
+            />
+            <CompactHeaderMetric
+              label="Data status"
+              value={dataHealth?.userFacingLabel ?? data.company.priceReadLabel ?? "Data limited"}
+              tone={dataHealth?.overallStatus === "complete" ? "text-accent-secondary" : "text-[#d8e8ff]"}
+            />
+            <CompactHeaderMetric
+              label="Watchlist"
+              value={isWatchlisted ? "Saved" : "Not saved"}
+              tone={isWatchlisted ? "text-accent-secondary" : "text-[#d8e8ff]"}
+            />
+          </div>
+        </div>
+      </div>
+
+        <div className="relative mt-3 grid grid-cols-2 gap-px overflow-hidden border border-[#47739f]/48 bg-[#2d527b]/24 shadow-[0_30px_78px_rgba(0,0,0,0.46),inset_0_1px_0_rgba(180,224,255,0.14),inset_0_-26px_58px_rgba(3,7,13,0.36)] xl:mt-0 xl:border-l-0">
+          <div className="col-span-2 flex items-center justify-between border-b border-[#35618d]/55 bg-[linear-gradient(180deg,#10263e,#081523)] px-3 py-1.5">
+            <p className="text-[0.62rem] font-black uppercase tracking-[0.2em] text-[#8eb8d8]">Quote panel</p>
+            <p className="text-[0.66rem] font-bold text-[#78d9d1]">{data.company.quoteSourceLabel ?? "Data limited"}</p>
+          </div>
+          {quoteTiles.map((tile) => (
+            <div key={tile.label} className="min-h-[4.05rem] bg-[radial-gradient(circle_at_100%_0%,rgba(128,217,225,0.07),transparent_7rem),linear-gradient(180deg,rgba(16,34,56,0.96),rgba(7,17,31,0.92))] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(128,217,225,0.08),inset_0_-14px_28px_rgba(3,7,13,0.24)]">
+              <p className="section-kicker text-[#6b86a8]">{tile.label}</p>
+              <p className="mt-0.5 truncate text-sm font-semibold text-[#eef6ff]" data-numeric>
+                {tile.value}
+              </p>
+              <p className="mt-0.5 truncate text-[0.68rem] font-medium text-[#6f87a6]">
+                {tile.detail}
+              </p>
+            </div>
+          ))}
+        </div>
+    </section>
+  );
+}
+
+function InlineDataStatus({ health }: { health?: StockDataHealth }) {
+  const isComplete = health?.overallStatus === "complete";
+  const label = health?.userFacingLabel ?? "Data limited";
+
+  return (
+    <span
+      className={`inline-flex items-center gap-1.5 border px-2 py-1 font-semibold ${
+        isComplete
+          ? "border-gain/24 bg-gain/8 text-gain"
+          : "border-warn/24 bg-warn-bg/24 text-warn"
+      }`}
+    >
+      <span className="h-1.5 w-1.5 rounded-full bg-current" />
+      {isComplete ? "Live data" : label}
+    </span>
+  );
+}
+
+function CompactHeaderMetric({
+  label,
+  value,
+  tone = "text-[#d8e8ff]",
+}: {
+  label: string;
+  value: string;
+  tone?: string;
+}) {
+  return (
+    <div className="bg-[#07111f]/88 px-2.5 py-1.5">
+      <p className="section-kicker text-[#647f9f]">{label}</p>
+      <p className={`mt-0.5 truncate text-xs font-semibold ${tone}`} data-numeric>
+        {value}
+      </p>
+    </div>
   );
 }
 
@@ -224,9 +384,7 @@ function createStockDetailData(
   marketData?: StockDetailMarketData,
   explanationResponse?: WhyMovingResponse,
   aiWording?: AIWordingOutput,
-  aiWordingStatus?: AIWordingStatus,
-  aiWordingProvider?: SupportedAIWordingProvider,
-  aiWordingFailureReason?: AIWordingFailureReason
+  aiWordingStatus?: AIWordingStatus
 ): StockDetailData {
   const quote = marketData?.quote;
   const profile = marketData?.profile;
@@ -280,7 +438,7 @@ function createStockDetailData(
       quickFacts: [
         {
           label: "Narrative",
-          value: dailyChangePercent >= 0 ? "Constructive read" : "Pressure read",
+          value: dailyChangePercent >= 0 ? "Price up" : "Price down",
         },
         {
           label: "Source",
@@ -297,9 +455,7 @@ function createStockDetailData(
       ? createStructuredExplanation(
           explanationResponse,
           aiWording,
-          aiWordingStatus,
-          aiWordingProvider,
-          aiWordingFailureReason
+          aiWordingStatus
         )
       : {
           ...stockDetailDemoData.explanation,
@@ -356,7 +512,7 @@ function createStockDetailData(
             `${stock.symbol}-specific news relevance improves enough to support a sourced explanation.`,
           ],
     },
-    metrics: createTickerMetrics(stock, quote),
+    metrics: createTickerMetrics(stock),
     news: liveNews?.length
       ? liveNews
           .slice(0, 5)
@@ -367,110 +523,29 @@ function createStockDetailData(
   };
 }
 
-function DataHealthStrip({ health }: { health: StockDataHealth }) {
-  const isComplete = health.overallStatus === "complete";
-
-  return (
-    <section
-      aria-label="Market data health"
-      className="rounded-[var(--radius-lg)] border border-border/60 bg-[color-mix(in_srgb,var(--surface-elevated)_78%,var(--surface)_22%)] px-4 py-3"
-    >
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex min-w-0 items-start gap-3">
-          <AlertTriangle
-            className={`mt-0.5 h-4 w-4 shrink-0 ${isComplete ? "text-accent-secondary" : "text-warn"}`}
-          />
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-ink">{health.userFacingLabel}</p>
-            <p className="mt-1 text-body-sm text-ink-muted">
-              {health.userFacingSummary}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <HealthBadge
-            label={formatHealthStatus("Quote", health.quoteStatus)}
-            ok={health.quoteStatus === "ok"}
-            termId={getHealthTermId(health.quoteStatus)}
-          />
-          <HealthBadge
-            label={formatHealthStatus("Chart", health.chartStatus)}
-            ok={health.chartStatus === "ok"}
-            termId={getHealthTermId(health.chartStatus)}
-          />
-          <HealthBadge
-            label={formatHealthStatus("News", health.newsStatus)}
-            ok={health.newsStatus === "ok"}
-            termId={getHealthTermId(health.newsStatus)}
-          />
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function HealthBadge({
-  label,
-  ok,
-  termId,
-}: {
-  label: string;
-  ok: boolean;
-  termId?: string | null;
-}) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <Badge
-        variant={ok ? "outline" : "ai"}
-        size="sm"
-        className="normal-case tracking-normal"
-      >
-        {label}
-      </Badge>
-      {termId ? <ExplainThis termId={termId} compact /> : null}
-    </span>
-  );
-}
-
-function getHealthTermId(status: string) {
-  if (status === "fallback" || status === "partial") {
-    return "partial-data";
-  }
-
-  if (status === "limited" || status === "missing" || status === "error") {
-    return "data-limited";
-  }
-
-  return null;
-}
-
-function formatHealthStatus(label: string, status: string) {
-  if (label === "Quote" && status === "ok") return "Live quote connected";
-  if (label === "Quote" && status === "missing") return "Quote unavailable";
-  if (label === "Chart" && status === "ok") return "Live chart connected";
-  if (label === "Chart" && status === "fallback") return "Fallback chart is not evidence";
-  if (label === "Chart") return "Chart provider unavailable";
-  if (label === "News" && status === "ok") return "News context connected";
-  if (label === "News" && status === "limited") return "News context limited";
-  if (label === "News") return "No recent news context found";
-
-  return `${label} ${status}`;
-}
-
-function toStockDetailChartRange(range: "1D" | "5D" | "1M"): StockDetailChartRange {
+function toStockDetailChartRange(range: UserChartRange): StockDetailChartRange {
   if (range === "5D") return "5d";
-  if (range === "1M") return "1m";
+  if (range === "1M" || range === "6M" || range === "1Y") return "1m";
   return "1d";
 }
 
 function createStructuredExplanation(
   response: WhyMovingResponse,
   aiWording?: AIWordingOutput,
-  aiWordingStatus?: AIWordingStatus,
-  aiWordingProvider?: SupportedAIWordingProvider,
-  aiWordingFailureReason?: AIWordingFailureReason
+  aiWordingStatus?: AIWordingStatus
 ) {
+  const keyFactors = Array.isArray(response.keyFactors)
+    ? response.keyFactors
+    : [];
+  const counterEvidence = Array.isArray(response.counterEvidence)
+    ? response.counterEvidence
+    : [];
+  const confidence = createSafeConfidence(response.confidence);
+  const generatedAt = response.generatedAt ?? new Date().toISOString();
+  const expiresAt = response.expiresAt ?? generatedAt;
+  const movePct = typeof response.movePct === "number" ? response.movePct : 0;
+  const sourceCount =
+    typeof response.sourceCount === "number" ? response.sourceCount : keyFactors.length;
   const chartMovePct = response.chartMovePct;
   const hasChartConfirmation = typeof chartMovePct === "number";
   const chartMove =
@@ -478,39 +553,26 @@ function createStructuredExplanation(
       ? formatPercent(chartMovePct)
       : "unavailable";
   const validatedAIWording = aiWordingStatus === "ok" ? aiWording : undefined;
-  const failedAIWording =
-    aiWordingStatus &&
-    aiWordingStatus !== "ok" &&
-    aiWordingStatus !== "not_requested";
 
   return {
     ...stockDetailDemoData.explanation,
     headline: validatedAIWording ? validatedAIWording.headline : response.summary,
-    freshness: `Generated ${formatDateTime(response.generatedAt)}`,
+    freshness: `Generated ${formatDateTime(generatedAt)}`,
     summary: validatedAIWording
       ? validatedAIWording.summary
-      : `${response.confidence.label}. ${response.dailyMoveLabel}: ${formatPercent(response.movePct)}. ${response.chartMoveLabel}: ${chartMove}.`,
-    wordingNote: validatedAIWording
-      ? aiWordingProvider === "openai"
-        ? "AI-polished wording. Structured evidence remains source of truth."
-        : "Structured ALQIS wording. No external AI wording provider active."
-      : failedAIWording
-        ? "Structured wording shown. AI polish unavailable."
-        : undefined,
-    wordingDetail: failedAIWording
-      ? aiWordingFailureReason
-        ? `AI polish status: ${aiWordingFailureReason}.`
-        : `AI polish status: ${aiWordingStatus}.`
-      : undefined,
+      : `${confidence.label}. ${response.dailyMoveLabel ?? "Daily move"}: ${formatPercent(movePct)}. ${response.chartMoveLabel ?? "Chart-window move"}: ${chartMove}.`,
     plainEnglishRead: validatedAIWording
       ? validatedAIWording.plainEnglishRead
       : undefined,
     aiWhyItMatters: validatedAIWording
       ? validatedAIWording.whyItMatters
       : undefined,
-    confidence: response.confidence.band,
-    sourceCount: response.sourceCount,
-    confidenceSummary: `ALQIS confidence is ${response.confidence.label.toLowerCase()} (${Math.round(response.confidence.score * 100)}%). This read expires ${formatDateTime(response.expiresAt)} unless refreshed.`,
+    confidence: confidence.band,
+    movePct,
+    confidenceScore: confidence.score,
+    confidenceBand: confidence.band,
+    sourceCount,
+    confidenceSummary: `ALQIS confidence is ${confidence.label.toLowerCase()} (${Math.round(confidence.score * 100)}%). This read expires ${formatDateTime(expiresAt)} unless refreshed.`,
     trustNote:
       validatedAIWording
         ? validatedAIWording.trustNote
@@ -521,13 +583,22 @@ function createStructuredExplanation(
       "Finnhub news",
       "Structured scoring",
     ],
-    reasons: response.keyFactors.slice(0, 3).map((factor) => ({
+    reasons: keyFactors.length
+      ? keyFactors.slice(0, 3).map((factor) => ({
       label: factor.label,
       score: Math.round(factor.score * 100),
       detail: `${factor.description} ${formatEvidenceType(factor.evidenceType)} evidence; ${formatMoveAlignment(factor.moveAlignment)}${factor.newsRelevance ? `; ${formatNewsRelevance(factor.newsRelevance)}` : ""}. Evidence count: ${factor.evidenceCount}.`,
-    })),
-    counterEvidence: response.counterEvidence.length
-      ? response.counterEvidence.map((item) => ({
+        }))
+      : [
+          {
+            label: "Evidence is limited",
+            score: 42,
+            detail:
+              "ALQIS received a structured response without usable factor details, so the read is kept cautious.",
+          },
+        ],
+    counterEvidence: counterEvidence.length
+      ? counterEvidence.map((item) => ({
           label: item.label,
           detail: item.description,
         }))
@@ -538,16 +609,49 @@ function createStructuredExplanation(
               "The read should be refreshed when price action, chart trend, or news flow changes.",
           },
         ],
-    evidence: response.keyFactors.slice(0, 3).map((factor) => ({
-      time: `${factor.evidenceCount} signal${factor.evidenceCount === 1 ? "" : "s"}`,
-      title: factor.label,
-      detail: `${factor.description} Evidence type: ${formatEvidenceType(factor.evidenceType)}. Move alignment: ${formatMoveAlignment(factor.moveAlignment)}${factor.newsRelevance ? `. Relevance: ${formatNewsRelevance(factor.newsRelevance)}` : ""}.`,
-    })),
+    evidence: keyFactors.length
+      ? keyFactors.slice(0, 3).map((factor) => ({
+          time: `${factor.evidenceCount} signal${factor.evidenceCount === 1 ? "" : "s"}`,
+          title: factor.label,
+          detail: `${factor.description} Evidence type: ${formatEvidenceType(factor.evidenceType)}. Move alignment: ${formatMoveAlignment(factor.moveAlignment)}${factor.newsRelevance ? `. Relevance: ${formatNewsRelevance(factor.newsRelevance)}` : ""}.`,
+        }))
+      : [
+          {
+            time: "Data limited",
+            title: "Structured evidence limited",
+            detail:
+              "ALQIS could not attach specific factor evidence to this read, so confidence should stay cautious.",
+          },
+        ],
     changeTriggers: [
       "The quote move reverses or materially weakens.",
       "New ticker-specific news contradicts the current event tag.",
       "The selected chart timeframe stops confirming the move.",
     ],
+  };
+}
+
+function createSafeConfidence(confidence: WhyMovingResponse["confidence"] | undefined) {
+  const safeBand =
+    confidence?.band === "A" ||
+    confidence?.band === "B" ||
+    confidence?.band === "C" ||
+    confidence?.band === "D"
+      ? confidence.band
+      : "D";
+  const safeLabel =
+    typeof confidence?.label === "string" && confidence.label.length
+      ? confidence.label
+      : "Low confidence";
+  const safeScore =
+    typeof confidence?.score === "number" && Number.isFinite(confidence.score)
+      ? confidence.score
+      : 0;
+
+  return {
+    band: safeBand,
+    label: safeLabel,
+    score: safeScore,
   };
 }
 
@@ -653,29 +757,44 @@ function createChartMarkers(
   points: Array<{ label: string; value: number }>,
   explanationResponse?: WhyMovingResponse
 ) {
-  const evidenceFactor = explanationResponse?.keyFactors.find(
+  const keyFactors = Array.isArray(explanationResponse?.keyFactors)
+    ? explanationResponse.keyFactors
+    : [];
+  const safePoints = Array.isArray(points) ? points : [];
+  const evidenceFactor = keyFactors.find(
     (factor) =>
       factor.evidenceCount > 0 &&
       factor.moveAlignment === "supports_move" &&
-      !factor.label.toLowerCase().includes("intraday")
+      !factor.label?.toLowerCase().includes("intraday")
   );
 
-  if (!evidenceFactor || points.length < 3) {
+  if (safePoints.length < 3) {
     return [];
   }
 
-  const midpoint = Math.max(1, Math.floor(points.length / 2));
-  return [
-    {
-      index: midpoint,
-      label: evidenceFactor.label,
+  const labels = ["E1", "E2", "E3", "E4", "E5"];
+  const markerCount = Math.min(labels.length, Math.max(3, Math.floor(safePoints.length / 4)));
+  const factorLabel = evidenceFactor?.label ?? "Sample evidence context";
+  const factorDetail =
+    evidenceFactor?.description ??
+    "Sample evidence context. This marker position is illustrative until evidence timestamps are mapped to the chart.";
+
+  return labels.slice(0, markerCount).map((label, index) => {
+    const pointIndex = Math.min(
+      safePoints.length - 2,
+      Math.max(1, Math.round(((index + 1) * (safePoints.length - 1)) / (markerCount + 1)))
+    );
+
+    return {
+      index: pointIndex,
+      label,
       kind: "event" as const,
-      time: points[midpoint]?.label ?? "Mid-session",
-      title: `${stock.symbol}: ${evidenceFactor.label}`,
-      explanation: evidenceFactor.description,
-      whyItMatters: `${formatEvidenceType(evidenceFactor.evidenceType)} evidence that ${formatMoveAlignment(evidenceFactor.moveAlignment)}.`,
-    },
-  ];
+      time: safePoints[pointIndex]?.label ?? "Sample point",
+      title: `${stock.symbol}: ${factorLabel}`,
+      explanation: factorDetail,
+      whyItMatters: "Sample evidence context. Pin placement is illustrative.",
+    };
+  });
 }
 
 function createChartStats(
@@ -802,14 +921,18 @@ function findMatchingExplanationFactor(
   item: StockNewsItem,
   explanationResponse?: WhyMovingResponse
 ) {
-  if (!explanationResponse) {
+  const keyFactors = Array.isArray(explanationResponse?.keyFactors)
+    ? explanationResponse.keyFactors
+    : [];
+
+  if (!keyFactors.length) {
     return undefined;
   }
 
   const text = getNewsSearchText(item);
 
-  return explanationResponse.keyFactors.find((factor) =>
-    factorMatchesNewsText(factor.label, text)
+  return keyFactors.find((factor) =>
+    factorMatchesNewsText(factor.label ?? "", text)
   );
 }
 
@@ -939,40 +1062,47 @@ function createTickerFallbackNews(stock: DemoStock): StockDetailData["news"] {
   ];
 }
 
-function createTickerMetrics(
-  stock: DemoStock,
-  quote?: StockQuote
-): StockDetailData["metrics"] {
+function createTickerMetrics(stock: DemoStock): StockDetailData["metrics"] {
   return [
     {
-      label: "Current price",
-      value: formatCurrency(quote?.price ?? stock.price),
-      context: quote ? "Live Finnhub quote." : `${stock.symbol} demo fallback quote.`,
+      label: "Market cap",
+      value: "—",
+      context: `${stock.symbol} value unavailable from the current Finnhub profile contract.`,
     },
     {
-      label: "Daily move",
-      value: `${(quote?.changePercent ?? stock.dailyChangePercent) >= 0 ? "+" : ""}${(quote?.changePercent ?? stock.dailyChangePercent).toFixed(2)}%`,
-      context: "Quote change from previous close; separate from selected chart-window movement.",
+      label: "P/E",
+      value: "—",
+      context: "Valuation multiple provider is not connected yet.",
     },
     {
-      label: "Open",
-      value: quote?.open ? formatCurrency(quote.open) : "Demo pending",
-      context: "Session open from provider when available.",
+      label: "Fwd P/E",
+      value: "—",
+      context: "Forward valuation provider is not connected yet.",
     },
     {
-      label: "High / Low",
-      value: quote?.high && quote.low ? `${formatCurrency(quote.high)} / ${formatCurrency(quote.low)}` : "Demo pending",
-      context: "Intraday range from provider quote data.",
+      label: "EPS",
+      value: "—",
+      context: "Fundamental EPS provider is not connected yet.",
     },
     {
-      label: "Previous close",
-      value: quote?.previousClose ? formatCurrency(quote.previousClose) : "Demo pending",
-      context: "Reference point for the daily change calculation.",
+      label: "Div yield",
+      value: "—",
+      context: "Dividend yield provider is not connected yet.",
     },
     {
-      label: "Sector",
-      value: stock.sector,
-      context: `${stock.companyName} demo classification.`,
+      label: "Beta",
+      value: "—",
+      context: "Beta provider is not connected yet.",
+    },
+    {
+      label: "52W high",
+      value: "—",
+      context: "52-week range is unavailable from the current quote response.",
+    },
+    {
+      label: "Volume",
+      value: "—",
+      context: "Volume is unavailable from the current quote response.",
     },
   ];
 }
@@ -988,11 +1118,17 @@ function createTickerSignals(
   const hasLiveChart = hasAnyLiveChartRange(marketData);
   const hasStructuredExplanation = Boolean(explanationResponse);
   const hasExplanationChart = typeof explanationResponse?.chartMovePct === "number";
-  const confidenceLabel = explanationResponse?.confidence.label ?? "Read pending";
-  const confidenceBand = explanationResponse?.confidence.band ?? "C";
+  const confidenceLabel = explanationResponse?.confidence?.label ?? "Read pending";
+  const confidenceBand = explanationResponse?.confidence?.band ?? "C";
   const expiresAt = explanationResponse?.expiresAt
     ? formatDateTime(explanationResponse.expiresAt)
     : "the next refresh";
+  const keyFactors = Array.isArray(explanationResponse?.keyFactors)
+    ? explanationResponse.keyFactors
+    : [];
+  const topFactor = keyFactors[0];
+  const topFactorLabel = topFactor?.label ?? "Structured evidence unavailable";
+  const topFactorDetail = topFactor?.description ?? "ALQIS did not receive a usable factor label for this read.";
 
   return {
     bullish: [
@@ -1012,8 +1148,12 @@ function createTickerSignals(
           ? "Structured read active"
           : "Screen remains usable",
         detail: hasStructuredExplanation
-          ? `ALQIS is scoring quote, chart, and news inputs for ${stock.symbol}.`
-          : "The stock detail page keeps structure intact while provider access is resolved.",
+          ? `ALQIS is scoring quote, chart, and news inputs for ${stock.symbol}. Primary factor: ${topFactorLabel}.`
+          : "The stock detail page keeps the structure visible while provider access is resolved.",
+      },
+      {
+        title: hasStructuredExplanation ? topFactorLabel : "Structured evidence unavailable",
+        detail: hasStructuredExplanation ? topFactorDetail : "The read remains in a Data limited state until structured evidence returns.",
       },
     ],
     bearish: [
@@ -1044,17 +1184,17 @@ function createTickerSignals(
       },
     ],
     analystSummary:
-      "Analyst and sentiment synthesis remains separate; this module summarizes ALQIS structured evidence only.",
+      "External opinion synthesis remains separate; this module summarizes ALQIS structured evidence only.",
     targetPrice: hasStructuredExplanation
       ? confidenceLabel
       : "Valuation view deferred",
     sentimentBand: hasStructuredExplanation
-      ? `${isPositive ? "Positive" : "Negative"} move, ${confidenceBand}-band read`
+      ? `${isPositive ? "Up" : "Down"} move, ${confidenceBand}-band read`
       : isPositive
-        ? "Price positive, read pending"
-        : "Price negative, read pending",
+        ? "Price up, read pending"
+        : "Price down, read pending",
     alqisRead: hasStructuredExplanation
-      ? `ALQIS is combining live market inputs with a structured ${stock.symbol} explanation, then separating the causal read from analyst or valuation modules.`
+      ? `ALQIS is combining live market inputs with a structured ${stock.symbol} explanation, then separating the causal read from external-opinion or valuation modules.`
       : "ALQIS is showing live market inputs where available and clearly labeling any fallback structure until the explanation layer is available.",
   };
 }
@@ -1383,6 +1523,15 @@ function createSyntheticPeerPoints(price: number, changePct: number) {
   }));
 }
 
+function getQuoteStatValue(data: StockDetailData, label: string) {
+  const stat = data.company.quoteStats?.find((item) => item.label === label);
+  if (!stat || stat.value === "Unavailable") {
+    return "—";
+  }
+
+  return stat.value;
+}
+
 function formatCurrency(value: number) {
   return new Intl.NumberFormat("en-US", {
     style: "currency",
@@ -1428,238 +1577,74 @@ function formatChartLabel(value: string, range: MarketChartRange) {
 }
 
 function TopBar() {
+  const navItems = [
+    { label: "Today", href: "/dashboard" },
+    { label: "Watchlist", href: "/dashboard" },
+    { label: "Portfolio", href: "/dashboard" },
+    { label: "Explore", href: "/dashboard" },
+    { label: "Alerts", href: "/alerts" },
+    { label: "Learn", href: "/learn" },
+  ];
+
   return (
-    <header className="relative z-10 border-b border-border/70 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--background)_97%,var(--surface)_3%)_0%,color-mix(in_srgb,var(--background)_88%,transparent)_100%)] shadow-[0_10px_30px_rgba(2,6,10,0.12)]">
-      <PageContainer className="flex max-w-[90rem] flex-wrap items-center justify-between gap-3 py-3 sm:gap-4 sm:py-4">
-        <div className="flex items-center gap-3">
+    <header className="alqis-stock-rail relative z-10 border-b">
+      <PageContainer className="grid max-w-[116rem] gap-2 py-2 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center">
+        <div className="flex min-w-fit items-center gap-2.5">
           <AlqisLogo variant="lockup" tone="dark" size="sm" priority />
           <div>
-            <p className="text-body-sm text-ink-muted">Stock intelligence screen</p>
+            <p className="section-kicker text-[#5f7898]">Vol. 1 / Stock workspace</p>
+            <p className="hidden text-xs text-ink-muted xl:block">
+              Explanation first / proof second / data third
+            </p>
           </div>
         </div>
 
-        <Badge variant="ai" size="md" className="hidden sm:inline-flex">
-          ALQIS Read
-        </Badge>
+        <div className="flex min-w-0 flex-col gap-2 md:flex-row md:items-center md:justify-center">
+          <nav className="scrollbar-hide flex w-full min-w-0 gap-1 overflow-x-auto whitespace-nowrap md:justify-start lg:justify-center" aria-label="Stock page navigation">
+            {navItems.map((item) =>
+              item.label === "Alerts" ? (
+                <AlertsNavLink
+                  key={item.label}
+                  className="flex-shrink-0 rounded-full px-2 py-1 text-[0.72rem] font-semibold text-[#8197b4] transition hover:bg-[#12243d] hover:text-[#d8e8ff] md:px-2.5"
+                />
+              ) : (
+                <Link
+                  key={item.label}
+                  href={item.href}
+                  className="flex-shrink-0 rounded-full px-2 py-1 text-[0.72rem] font-semibold text-[#8197b4] transition hover:bg-[#12243d] hover:text-[#d8e8ff] md:px-2.5"
+                >
+                  {item.label}
+                </Link>
+              )
+            )}
+          </nav>
+          <TickerSearch
+            chrome="nav"
+            placeholder="Search a ticker, open an ALQIS Read..."
+            className="hidden lg:block lg:min-w-[18rem] xl:min-w-[25rem]"
+          />
+        </div>
+
+        <div className="flex items-center gap-2 justify-self-start lg:justify-self-end">
+          <div className="hidden rounded-[0.65rem] border border-[#213d63]/72 bg-[#07111f]/70 px-3 py-1.5 text-xs text-[#a9bad0] sm:block">
+            <span className="section-kicker mr-2 text-[#5f7898]">Today</span>
+            <span className="text-accent-secondary">Market context</span>
+          </div>
+          <Link
+            href="/dashboard"
+            className="rounded-[0.65rem] border border-accent-secondary/24 bg-accent-secondary/8 px-3 py-1.5 text-xs font-semibold text-accent-secondary"
+          >
+            Get ALQIS Read
+          </Link>
+          <Link
+            href="/profile"
+            aria-label="Open profile settings"
+            className="grid h-8 w-8 place-items-center rounded-full border border-accent-ai/28 bg-accent-ai/18 text-xs font-semibold text-[#dfe7ff] transition hover:border-accent-secondary/45 hover:text-[#f4f8ff]"
+          >
+            A
+          </Link>
+        </div>
       </PageContainer>
     </header>
-  );
-}
-
-function KeyMetricsCard({ data }: { data: StockDetailData }) {
-  return (
-    <Card variant="subtle" radius="xl" className="h-full border-border/72">
-      <CardHeader>
-        <CardEyebrow>Key metrics</CardEyebrow>
-        <CardTitle>Context around the move.</CardTitle>
-        <CardDescription>
-          Core data points that clarify the read without turning the page into a terminal.
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent>
-        <div className="dense-finance-grid">
-          {data.metrics.map((metric) => (
-            <div key={metric.label} className="dense-finance-row">
-              <div>
-                <p className="text-sm font-medium text-ink">{metric.label}</p>
-                <p className="mt-1 text-body-sm text-ink-muted">{metric.context}</p>
-              </div>
-              <span className="text-base font-medium text-ink" data-numeric>
-                {metric.value}
-              </span>
-            </div>
-          ))}
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function SignalBalanceCard({ data }: { data: StockDetailData }) {
-  const { signals } = data;
-
-  return (
-    <Card variant="subtle" radius="xl" className="h-full border-border/72">
-      <CardHeader>
-        <CardEyebrow>Evidence balance</CardEyebrow>
-        <CardTitle>What supports the read, and what could weaken it.</CardTitle>
-        <CardDescription>
-          This is not a sentiment widget. It is the current weight of evidence on both sides.
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-5">
-        <div className="grid gap-4 lg:grid-cols-2">
-          <SignalColumn
-            title="Supports read"
-            tone="gain"
-            icon={<TrendingUp className="h-4 w-4" />}
-            items={signals.bullish}
-          />
-          <SignalColumn
-            title="Challenges read"
-            tone="loss"
-            icon={<Scale className="h-4 w-4" />}
-            items={signals.bearish}
-          />
-        </div>
-
-        <div className="rounded-[var(--radius-lg)] border border-accent-ai/10 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--accent-ai)_8%)] p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="section-kicker">ALQIS read</p>
-              <p className="mt-2 text-base font-medium text-ink">{signals.sentimentBand}</p>
-            </div>
-            <Badge variant="ai" size="md">
-              Structured evidence
-            </Badge>
-          </div>
-          <p className="mt-3 text-body text-ink">{signals.alqisRead}</p>
-          <p className="mt-2 text-body-sm text-ink-muted">{signals.analystSummary}</p>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-function SignalColumn({
-  title,
-  tone,
-  icon,
-  items,
-}: {
-  title: string;
-  tone: "gain" | "loss";
-  icon: ReactNode;
-  items: StockDetailData["signals"]["bullish"];
-}) {
-  const badgeVariant = tone === "gain" ? "gain" : "loss";
-  const iconClass = tone === "gain" ? "text-gain" : "text-loss";
-
-  return (
-    <section className="rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--surface)_18%)] p-4">
-      <div className="mb-4 flex items-center gap-2 border-b border-border/50 pb-3">
-        <span className={iconClass}>{icon}</span>
-        <Badge variant={badgeVariant} size="md">
-          {title}
-        </Badge>
-      </div>
-
-      <ul className="space-y-3">
-        {items.map((item) => (
-          <li key={item.title} className="space-y-1">
-            <p className="text-sm font-medium text-ink">{item.title}</p>
-            <p className="text-body-sm leading-6 text-ink-muted">{item.detail}</p>
-          </li>
-        ))}
-      </ul>
-    </section>
-  );
-}
-
-function TopNewsCard({ data }: { data: StockDetailData }) {
-  return (
-    <Card variant="subtle" radius="xl" className="h-full border-border/72">
-      <CardHeader>
-        <CardEyebrow>ALQIS news filter</CardEyebrow>
-        <CardTitle>News that changes the read.</CardTitle>
-        <CardDescription>
-          Each item is paired with why it matters to the current price narrative.
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-3">
-        {data.news.map((item) => (
-          <article
-            key={`${item.source}-${item.headline}`}
-            className="rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_82%,var(--surface)_18%)] p-4"
-          >
-            <div className="flex flex-wrap items-center gap-2">
-              <Badge variant="outline" size="sm" className="normal-case tracking-normal">
-                <Newspaper className="h-3.5 w-3.5" />
-                {item.source}
-              </Badge>
-              <span className="text-body-sm text-ink-subtle">{item.time}</span>
-            </div>
-
-            <h3 className="mt-3 text-lg font-medium tracking-tight text-ink">
-              {item.headline}
-            </h3>
-            <p className="mt-2 text-body leading-7 text-ink-muted">{item.summary}</p>
-            <div className="mt-3 rounded-[var(--radius-md)] border border-border/60 bg-surface/45 px-3 py-3">
-              <p className="section-kicker">Why it matters</p>
-              <p className="mt-2 text-body-sm leading-6 text-ink">{item.whyItMatters}</p>
-            </div>
-          </article>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-function PeerComparisonCard({ data }: { data: StockDetailData }) {
-  return (
-    <Card variant="subtle" radius="xl" className="h-full border-border/72">
-      <CardHeader>
-        <CardEyebrow>Peer read-through</CardEyebrow>
-        <CardTitle>How peers test the read.</CardTitle>
-        <CardDescription>
-          ALQIS uses peers to test whether today&apos;s move is isolated or supported across the stack.
-        </CardDescription>
-      </CardHeader>
-
-      <CardContent className="space-y-3">
-        {data.peers.map((peer) => (
-          <article
-            key={peer.symbol}
-            className="rounded-[var(--radius-lg)] border border-border/70 bg-[color-mix(in_srgb,var(--surface-elevated)_80%,var(--surface)_20%)] p-4"
-          >
-            <div className="flex flex-col gap-3 min-[430px]:flex-row min-[430px]:items-start min-[430px]:justify-between">
-              <div className="min-w-0">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-base font-semibold tracking-tight text-ink">
-                    {peer.symbol}
-                  </span>
-                  <span className="break-words text-body-sm text-ink-muted">{peer.name}</span>
-                </div>
-                <p className="mt-2 text-body-sm leading-6 text-ink-muted">{peer.note}</p>
-              </div>
-
-              <div className="shrink-0 text-left min-[430px]:text-right">
-                <p className="text-base font-medium text-ink" data-numeric>
-                  {peer.price}
-                </p>
-                <Delta value={peer.changePct} size="sm" />
-              </div>
-            </div>
-
-            <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(0,1fr)_8.25rem] sm:items-end">
-              <div className="min-w-0 rounded-[var(--radius-md)] border border-border/60 bg-surface/38 px-3 py-3">
-                <div className="flex items-center gap-2 text-body-sm text-ink-subtle">
-                  <Radar className="h-4 w-4" />
-                  {peer.readThrough}
-                </div>
-                <Badge
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 normal-case tracking-normal"
-                >
-                  {peer.timeframe}
-                </Badge>
-              </div>
-              <div className="rounded-[var(--radius-md)] border border-border/60 bg-[color-mix(in_srgb,var(--surface)_88%,var(--accent-secondary)_12%)] px-3 py-2">
-                <p className="section-kicker mb-1">Trend</p>
-                <SparklineChart
-                  data={peer.points}
-                  trend={peer.changePct >= 0 ? "up" : "down"}
-                  className="h-10 w-full"
-                />
-              </div>
-            </div>
-          </article>
-        ))}
-      </CardContent>
-    </Card>
   );
 }

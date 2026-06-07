@@ -1,39 +1,59 @@
 import { NextResponse } from "next/server";
-import { normalizedApiError, rateLimitedResponse } from "@/lib/errors/api-error";
+import { recordRouteEvent } from "@/lib/diagnostics/observability";
+import { rateLimitedResponse } from "@/lib/errors/api-error";
 import { runDiagnostics } from "@/lib/diagnostics/run-diagnostics";
+import { requireApiUser } from "@/lib/security/auth";
 import {
   getRateLimitKey,
   rateLimit,
   RATE_LIMITS,
 } from "@/lib/security/rate-limit";
-import { createClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const ROUTE = "/api/diagnostics";
 
 export async function GET(request: Request) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+  const auth = await requireApiUser();
 
-  if (error || !user) {
-    return normalizedApiError({ code: "AUTH_REQUIRED" });
+  if (!auth.ok) {
+    recordRouteEvent({
+      category: "auth_required_failed",
+      route: ROUTE,
+      method: "GET",
+    });
+    return auth.response;
   }
 
+  recordRouteEvent({
+    category: "route_request",
+    route: ROUTE,
+    method: "GET",
+  });
   const limit = await rateLimit(
-    getRateLimitKey(request, user.id, "diagnostics"),
+    getRateLimitKey(request, auth.userId, "diagnostics"),
     RATE_LIMITS.diagnostics
   );
 
   if (!limit.allowed) {
+    recordRouteEvent({
+      category: "rate_limit_blocked",
+      route: ROUTE,
+      method: "GET",
+    });
     return rateLimitedResponse(limit.resetAt);
   }
 
   const report = await runDiagnostics({
-    supabase,
-    userId: user.id,
+    supabase: auth.supabase,
+    userId: auth.userId,
+  });
+
+  recordRouteEvent({
+    category: "route_request",
+    route: ROUTE,
+    method: "GET",
+    status: report.status,
   });
 
   return NextResponse.json(report);

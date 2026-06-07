@@ -67,7 +67,7 @@ export const CardEyebrow = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <span
     ref={ref}
-    className={cn("section-kicker inline-flex items-center gap-2", className)}
+    className={cn("section-kicker inline-flex items-center gap-2 no-underline", className)}
     {...props}
   />
 ));
@@ -79,7 +79,7 @@ export const CardTitle = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <h3
     ref={ref}
-    className={cn("break-words text-card-title font-serif text-ink", className)}
+    className={cn("break-words text-card-title font-serif text-ink no-underline", className)}
     {...props}
   />
 ));
@@ -89,7 +89,7 @@ export const CardDescription = React.forwardRef<
   HTMLParagraphElement,
   React.HTMLAttributes<HTMLParagraphElement>
 >(({ className, ...props }, ref) => (
-  <p ref={ref} className={cn("break-words text-body text-ink-muted", className)} {...props} />
+  <p ref={ref} className={cn("break-words text-body text-ink-muted no-underline", className)} {...props} />
 ));
 CardDescription.displayName = "CardDescription";
 

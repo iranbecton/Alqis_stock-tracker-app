@@ -3,15 +3,31 @@ import type { ChartRange } from "@/lib/market-data/types";
 import { normalizeTicker } from "@/lib/market-data/validation";
 
 export function quoteCacheKey(ticker: string) {
-  return `quote:${normalizeTicker(ticker)}`;
+  return `quote:${cacheSafeTicker(ticker)}`;
 }
 
 export function chartCacheKey(ticker: string, range: ChartRange) {
-  return `chart:${normalizeTicker(ticker)}:${range.toUpperCase()}`;
+  return `chart:${cacheSafeTicker(ticker)}:${range.toUpperCase()}`;
 }
 
 export function newsCacheKey(ticker: string) {
-  return `news:${normalizeTicker(ticker)}`;
+  return `news:${cacheSafeTicker(ticker)}`;
+}
+
+export function newsSurfaceCacheKey(ticker: string, surface: "stock" | "dashboard") {
+  return `news:${cacheSafeTicker(ticker)}:${surface}`;
+}
+
+export function financialsCacheKey(ticker: string) {
+  return `financials:${cacheSafeTicker(ticker)}`;
+}
+
+export function segmentsCacheKey(ticker: string) {
+  return `segments:${cacheSafeTicker(ticker)}`;
+}
+
+export function earningsHistoryCacheKey(ticker: string) {
+  return `history:${cacheSafeTicker(ticker)}`;
 }
 
 export function explanationCacheKey(
@@ -19,7 +35,11 @@ export function explanationCacheKey(
   timeframe: ChartRange,
   evidenceHash: string
 ) {
-  return `explain:${normalizeTicker(ticker)}:${timeframe.toUpperCase()}:${evidenceHash}`;
+  return `explain:${cacheSafeTicker(ticker)}:${timeframe.toUpperCase()}:${evidenceHash}`;
+}
+
+export function fundamentalsCacheKey(ticker: string) {
+  return `fundamentals:${cacheSafeTicker(ticker)}`;
 }
 
 export function searchCacheKey(query: string) {
@@ -39,6 +59,10 @@ export function stableHash(value: unknown) {
     .update(stableStringify(value))
     .digest("hex")
     .slice(0, 16);
+}
+
+function cacheSafeTicker(ticker: string) {
+  return normalizeTicker(ticker).replace(/\./g, "-");
 }
 
 function stableStringify(value: unknown): string {

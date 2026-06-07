@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { withCache } from "@/lib/cache";
 import { chartCacheKey } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
+import {
+  recordCacheOutcome,
+  recordRefreshCooldown,
+  recordRouteEvent,
+} from "@/lib/diagnostics/observability";
 import { normalizedApiError, rateLimitedResponse } from "@/lib/errors/api-error";
 import { twelveDataChartProvider } from "@/lib/market-data/twelve-data";
 import {
@@ -14,6 +19,8 @@ import {
   isRefreshRequest,
   rateLimit,
   RATE_LIMITS,
+  refreshCooldown,
+  REFRESH_COOLDOWNS,
 } from "@/lib/security/rate-limit";
 
 type RouteContext = {
@@ -21,6 +28,7 @@ type RouteContext = {
     ticker: string;
   }>;
 };
+const ROUTE = "/api/stocks/[ticker]/chart";
 
 export async function GET(request: Request, context: RouteContext) {
   const { ticker } = await context.params;
@@ -28,6 +36,14 @@ export async function GET(request: Request, context: RouteContext) {
   const { searchParams } = new URL(request.url);
   const range = parseChartRange(searchParams.get("range"));
   const forceRefresh = isRefreshRequest(request);
+  recordRouteEvent({
+    category: "route_request",
+    route: ROUTE,
+    method: "GET",
+    ticker: symbol,
+    range,
+    refreshRequested: forceRefresh,
+  });
   const limit = await rateLimit(
     getRateLimitKey(
       request,
@@ -38,10 +54,25 @@ export async function GET(request: Request, context: RouteContext) {
   );
 
   if (!limit.allowed) {
+    recordRouteEvent({
+      category: "rate_limit_blocked",
+      route: ROUTE,
+      method: "GET",
+      ticker: symbol,
+      range,
+      refreshRequested: forceRefresh,
+    });
     return rateLimitedResponse(limit.resetAt);
   }
 
   if (!isValidTicker(symbol)) {
+    recordRouteEvent({
+      category: "validation_failed",
+      route: ROUTE,
+      method: "GET",
+      ticker: symbol,
+      reason: "invalid_ticker",
+    });
     return normalizedApiError({
       code: "VALIDATION_ERROR",
       message: "Invalid ticker symbol.",
@@ -49,11 +80,38 @@ export async function GET(request: Request, context: RouteContext) {
   }
 
   if (!range) {
+    recordRouteEvent({
+      category: "validation_failed",
+      route: ROUTE,
+      method: "GET",
+      ticker: symbol,
+      reason: "invalid_chart_range",
+    });
     return normalizedApiError({
       code: "VALIDATION_ERROR",
       message: "Unsupported chart range. Use 1D, 5D, or 1M.",
     });
   }
+
+  const refreshWindow = forceRefresh
+    ? await refreshCooldown(
+        getRateLimitKey(
+          request,
+          null,
+          `chart-refresh-window:${symbol}:${range}`
+        ),
+        REFRESH_COOLDOWNS.marketData
+      )
+    : { allowed: true };
+  recordRefreshCooldown({
+    route: ROUTE,
+    requested: forceRefresh,
+    allowed: refreshWindow.allowed,
+    method: "GET",
+    ticker: symbol,
+    range,
+  });
+  const effectiveForceRefresh = forceRefresh && refreshWindow.allowed;
 
   try {
     const { data: result, meta } = await withCache(
@@ -71,7 +129,7 @@ export async function GET(request: Request, context: RouteContext) {
         return twelveDataChartProvider.getCandles(symbol, range);
       },
       {
-        forceRefresh,
+        forceRefresh: effectiveForceRefresh,
         shouldCache: (data) => {
           const result = data as Awaited<
             ReturnType<typeof twelveDataChartProvider.getCandles>
@@ -80,6 +138,15 @@ export async function GET(request: Request, context: RouteContext) {
         },
       }
     );
+    recordCacheOutcome(ROUTE, meta, {
+      method: "GET",
+      ticker: symbol,
+      range,
+      provider: result.provider,
+      refreshRequested: forceRefresh,
+      refreshAllowed: effectiveForceRefresh,
+      status: result.status,
+    });
 
     if (result.status !== "ok" && result.status !== "empty") {
       if (process.env.NODE_ENV === "development") {
@@ -93,22 +160,35 @@ export async function GET(request: Request, context: RouteContext) {
         });
       }
 
-      return NextResponse.json(
-        {
-          error: result.providerAccessError
-            ? "Chart provider access error."
-            : result.providerRateLimited
-              ? "Chart provider rate limited."
-              : "Chart provider error.",
-          code: result.providerRateLimited
-            ? "rate_limited"
-            : "provider_unavailable",
-          retryable: true,
+      recordRouteEvent({
+        category: "provider_error_sanitized",
+        route: ROUTE,
+        method: "GET",
+        ticker: symbol,
+        range,
+        provider: result.provider,
+        status: result.status,
+        reason: result.providerRateLimited
+          ? "chart_rate_limited"
+          : "chart_provider_unavailable",
+      });
+
+      return normalizedApiError({
+        code: result.providerRateLimited
+          ? "RATE_LIMITED"
+          : "PROVIDER_UNAVAILABLE",
+        message: result.providerAccessError
+          ? "Chart provider access error."
+          : result.providerRateLimited
+            ? "Chart provider rate limited."
+            : "Chart provider error.",
+        status: result.providerRateLimited ? 429 : 502,
+        extra: {
           provider: result.provider,
           providerAccessError: Boolean(result.providerAccessError),
           providerRateLimited: Boolean(result.providerRateLimited),
           providerStatus: result.providerStatus,
-          providerMessage: result.providerMessage,
+          providerMessage: getSafeChartProviderMessage(result),
           fallback: "demo-chart-structure",
           symbol,
           range,
@@ -120,8 +200,19 @@ export async function GET(request: Request, context: RouteContext) {
               ? "rate_limited"
               : "provider_error",
         },
-        { status: result.providerRateLimited ? 429 : 502 }
-      );
+      });
+    }
+
+    if (result.status === "empty") {
+      recordRouteEvent({
+        category: "provider_fallback",
+        route: ROUTE,
+        method: "GET",
+        ticker: symbol,
+        range,
+        provider: result.provider,
+        reason: "empty_chart_points",
+      });
     }
 
     return NextResponse.json({
@@ -131,7 +222,10 @@ export async function GET(request: Request, context: RouteContext) {
       points: result.points,
       status: result.status,
       fallback: result.points.length > 0 ? null : "demo-chart-structure",
-      providerMessage: result.providerMessage,
+      providerMessage:
+        result.status === "empty"
+          ? "Chart provider returned no points for this range."
+          : undefined,
       ...meta,
     });
   } catch (error) {
@@ -144,11 +238,20 @@ export async function GET(request: Request, context: RouteContext) {
       });
     }
 
-    return NextResponse.json(
-      {
-        error: "Chart provider unavailable.",
-        code: "provider_unavailable",
-        retryable: true,
+    recordRouteEvent({
+      category: "provider_error_sanitized",
+      route: ROUTE,
+      method: "GET",
+      ticker: symbol,
+      range,
+      provider: "twelve-data",
+      reason: "unexpected_chart_provider_failure",
+    });
+
+    return normalizedApiError({
+      code: "PROVIDER_UNAVAILABLE",
+      message: "Chart provider unavailable.",
+      extra: {
         provider: "twelve-data",
         fallback: "demo-chart-structure",
         symbol,
@@ -156,7 +259,21 @@ export async function GET(request: Request, context: RouteContext) {
         points: [],
         status: "provider_error",
       },
-      { status: 502 }
-    );
+    });
   }
+}
+
+function getSafeChartProviderMessage(result: {
+  providerAccessError?: boolean;
+  providerRateLimited?: boolean;
+}) {
+  if (result.providerAccessError) {
+    return "Chart provider access is unavailable for this resource.";
+  }
+
+  if (result.providerRateLimited) {
+    return "Chart provider is rate limited. Please retry later.";
+  }
+
+  return "Chart provider unavailable. Please retry.";
 }

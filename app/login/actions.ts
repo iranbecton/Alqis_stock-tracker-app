@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { hasCompletedOnboarding } from "@/lib/profile/investor-profile";
 import { hasSupabaseEnv } from "@/lib/supabase/env";
 import { createClient } from "@/lib/supabase/server";
 
@@ -47,7 +48,7 @@ export async function signInAction(formData: FormData) {
   }
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signInWithPassword({
+  const { data, error } = await supabase.auth.signInWithPassword({
     email,
     password,
   });
@@ -56,6 +57,18 @@ export async function signInAction(formData: FormData) {
     logAuthError("Login failed", error);
 
     redirect(withStatus("/login", "error", error.message));
+  }
+
+  const userId = data.user?.id;
+
+  if (!userId) {
+    redirect(withStatus("/login", "error", "Sign in could not be completed."));
+  }
+
+  const completedOnboarding = await hasCompletedOnboarding(supabase, userId);
+
+  if (!completedOnboarding) {
+    redirect("/onboarding");
   }
 
   redirect(next);

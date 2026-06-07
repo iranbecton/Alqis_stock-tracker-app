@@ -52,6 +52,8 @@ type RenderedChartSize = {
   height: number;
 };
 
+type PriceLineChartVariant = "full" | "compact";
+
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
@@ -68,9 +70,9 @@ const CHART_LAYOUT = {
   },
   annotation: {
     rightInset: 18,
-    highLabelY: 20,
-    lowLabelX: 20,
-    lowLabelBottomInset: 10,
+    leftInset: 20,
+    lineGap: 10,
+    axisClearance: 20,
   },
   endpoint: {
     markerRadius: 8,
@@ -95,8 +97,27 @@ const CHART_LAYOUT = {
 } as const;
 
 const MARKER_COLLISION_DISTANCE_PX = 24;
+const AXIS_LABEL_MIN_DISTANCE_PX = 92;
 
 function getChartGeometry(data: PriceLineChartPoint[], width: number, height: number) {
+  if (data.length === 0) {
+    const plotLeft = CHART_LAYOUT.bounds.left;
+    const plotRight = width - CHART_LAYOUT.bounds.right;
+    const plotTop = CHART_LAYOUT.bounds.top;
+    const plotBottom = height - CHART_LAYOUT.bounds.bottom;
+
+    return {
+      points: [],
+      baseline: plotBottom,
+      plotLeft,
+      plotRight,
+      plotTop,
+      plotWidth: plotRight - plotLeft,
+      plotHeight: plotBottom - plotTop,
+      markerGuideTop: plotTop + 4,
+    };
+  }
+
   const minValue = Math.min(...data.map((point) => point.value));
   const maxValue = Math.max(...data.map((point) => point.value));
   const safeRange = maxValue - minValue || 1;
@@ -146,11 +167,30 @@ function getChartGeometry(data: PriceLineChartPoint[], width: number, height: nu
   };
 }
 
+function getSafeChartData(data: PriceLineChartPoint[] | undefined | null) {
+  return Array.isArray(data)
+    ? data.filter(
+        (point) =>
+          point &&
+          typeof point.label === "string" &&
+          typeof point.value === "number" &&
+          Number.isFinite(point.value)
+      )
+    : [];
+}
+
 function getSparklineGeometry(
   data: PriceLineChartPoint[],
   width: number,
   height: number
 ) {
+  if (data.length === 0) {
+    return {
+      points: [],
+      baseline: height - 5,
+    };
+  }
+
   const minValue = Math.min(...data.map((point) => point.value));
   const maxValue = Math.max(...data.map((point) => point.value));
   const safeRange = maxValue - minValue || 1;
@@ -203,6 +243,10 @@ function formatPercent(value: number) {
   return `${prefix}${value.toFixed(2)}%`;
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
 function getMarkerTypeLabel(marker: InteractiveMarker) {
   if (marker.kind === "current") return "Price confirmation";
   if (marker.kind === "event") return "News context";
@@ -211,6 +255,14 @@ function getMarkerTypeLabel(marker: InteractiveMarker) {
   return Math.abs(marker.changePct) >= 0.75
     ? "Price confirmation"
     : "Data checkpoint";
+}
+
+function getTooltipEvidenceTag(marker: InteractiveMarker) {
+  if (marker.kind === "data") {
+    return null;
+  }
+
+  return marker.title || getMarkerTypeLabel(marker);
 }
 
 function getMarkerStance(marker: InteractiveMarker): ChartMarkerInsight["stance"] {
@@ -256,6 +308,59 @@ function createMarkerInsight(marker: InteractiveMarker): ChartMarkerInsight {
   };
 }
 
+function getAxisLabelIndices({
+  data,
+  points,
+  renderedSize,
+  viewBoxWidth,
+}: {
+  data: PriceLineChartPoint[];
+  points: Coordinates[];
+  renderedSize: RenderedChartSize;
+  viewBoxWidth: number;
+}) {
+  if (data.length <= 1) {
+    return [];
+  }
+
+  const maxLabels = renderedSize.width < 440 ? 3 : renderedSize.width < 680 ? 4 : 5;
+  const candidateCount = Math.min(maxLabels, data.length);
+  const rawIndices = Array.from({ length: candidateCount }, (_, index) =>
+    Math.round((index * (data.length - 1)) / Math.max(candidateCount - 1, 1))
+  );
+  const indices = Array.from(new Set(rawIndices)).sort((a, b) => a - b);
+  const scaleX = renderedSize.width / viewBoxWidth;
+  const accepted: number[] = [];
+
+  indices.forEach((index) => {
+    const point = points[index];
+
+    if (!point) {
+      return;
+    }
+
+    const x = point.x * scaleX;
+    const previousIndex = accepted[accepted.length - 1];
+    const previousPoint =
+      previousIndex === undefined ? undefined : points[previousIndex];
+    const previousX = previousPoint ? previousPoint.x * scaleX : undefined;
+
+    if (
+      previousX !== undefined &&
+      x - previousX < AXIS_LABEL_MIN_DISTANCE_PX
+    ) {
+      if (index === data.length - 1) {
+        accepted[accepted.length - 1] = index;
+      }
+      return;
+    }
+
+    accepted.push(index);
+  });
+
+  return accepted;
+}
+
 function getMarkerPlacement(point: Coordinates, width: number, height: number) {
   const horizontal =
     point.x < width * 0.22 ? "start" : point.x > width * 0.74 ? "end" : "center";
@@ -267,6 +372,36 @@ function getMarkerPlacement(point: Coordinates, width: number, height: number) {
     horizontal,
     vertical,
   } as const;
+}
+
+function getPricePillPlacement({
+  point,
+  width,
+  plotLeft,
+  plotRight,
+  plotTop,
+  baseline,
+}: {
+  point: Coordinates;
+  width: number;
+  plotLeft: number;
+  plotRight: number;
+  plotTop: number;
+  baseline: number;
+}) {
+  const pillWidth = 70;
+  const pillHeight = 20;
+  const gap = 8;
+  const placeLeft = point.x + gap + pillWidth > Math.min(plotRight, width - 10);
+  const x = placeLeft ? point.x - gap - pillWidth : point.x + gap;
+  const y = clamp(point.y - pillHeight / 2, plotTop + 4, baseline - pillHeight - 4);
+
+  return {
+    x: clamp(x, plotLeft + 2, width - pillWidth - 4),
+    y,
+    width: pillWidth,
+    height: pillHeight,
+  };
 }
 
 function getMarkerBasePriority(marker: InteractiveMarker) {
@@ -380,14 +515,15 @@ function MarkerTooltip({
         : "-50%";
   const translateY =
     placement.vertical === "top" ? "calc(-100% - 14px)" : "14px";
+  const evidenceTag = getTooltipEvidenceTag(marker);
 
   return (
     <div
       className={cn(
-        "pointer-events-none absolute z-20 rounded-[1.1rem] border border-white/10 bg-[rgba(7,12,18,0.94)] px-3.5 py-3 shadow-[0_18px_42px_rgba(0,0,0,0.36)] backdrop-blur-xl transition-all duration-150",
+        "pointer-events-none absolute z-20 rounded-[0.65rem] border border-[#72c7be]/28 bg-[#0D1B24] px-3 py-2.5 text-[#F4EEE2] shadow-[0_14px_34px_rgba(0,0,0,0.38),0_0_18px_rgba(114,199,190,0.08)] backdrop-blur-xl transition-all duration-150",
         group.members.length > 1
           ? "w-[min(16.125rem,calc(100vw-2.5rem))]"
-          : "w-[min(13rem,calc(100vw-2.5rem))]"
+          : "w-max max-w-[min(13rem,calc(100vw-2.5rem))]"
       )}
       style={{
         left: placement.left,
@@ -395,52 +531,36 @@ function MarkerTooltip({
         transform: `translate(${translateX}, ${translateY})`,
       }}
     >
-      <div className="flex items-center justify-between gap-3">
-        <p className="text-[0.62rem] uppercase tracking-[0.18em] text-ink-subtle">
-          {group.members.length > 1 ? "Grouped signal" : getMarkerTypeLabel(marker)}
-        </p>
-        <p
-          className={cn(
-            "text-[0.72rem] font-medium",
-            marker.changePct >= 0 ? "text-gain" : "text-loss"
-          )}
-        >
-          {formatPercent(marker.changePct)}
-        </p>
-      </div>
-      <p className="mt-1.5 text-sm font-semibold text-ink">
-        {currencyFormatter.format(marker.value)}
-      </p>
-      <p className="mt-1 text-[0.76rem] text-ink-subtle">{marker.time}</p>
-      {marker.label ? (
-        <p className="mt-2 text-[0.8rem] leading-5 text-ink">
-          {marker.label}
+      {evidenceTag || group.members.length > 1 ? (
+        <p className="mb-1 text-[0.68rem] font-semibold uppercase tracking-[0.14em] text-[#72c7be]">
+          {group.members.length > 1 ? "Grouped signals" : evidenceTag}
         </p>
       ) : null}
-      <p className="mt-2 text-[0.76rem] leading-5 text-ink-muted">
-        {getMarkerExplanation(marker)}
+      <p className="text-sm font-semibold text-[#F4EEE2]">
+        {currencyFormatter.format(marker.value)}
       </p>
+      <p className="mt-0.5 text-[0.72rem] text-[#F4EEE2]/68">{marker.time}</p>
       {group.members.length > 1 ? (
-        <div className="mt-3 space-y-2 border-t border-white/10 pt-2.5">
+        <div className="mt-2 space-y-1.5 border-t border-[#72c7be]/16 pt-2">
           {group.members.map((member) => (
             <div
               key={`tooltip-${member.key}`}
-              className="rounded-[0.8rem] bg-white/[0.035] px-2.5 py-2"
+              className="rounded-[0.45rem] bg-white/[0.035] px-2 py-1.5"
             >
               <div className="flex items-start justify-between gap-3">
-                <p className="text-[0.76rem] font-medium leading-4 text-ink">
-                  {member.label}
+                <p className="text-[0.72rem] font-medium leading-4 text-[#F4EEE2]">
+                  {getTooltipEvidenceTag(member) ?? member.time}
                 </p>
                 <p
                   className={cn(
-                    "shrink-0 text-[0.7rem] font-medium",
+                    "shrink-0 text-[0.68rem] font-medium",
                     member.changePct >= 0 ? "text-gain" : "text-loss"
                   )}
                 >
                   {formatPercent(member.changePct)}
                 </p>
               </div>
-              <p className="mt-1 text-[0.7rem] leading-4 text-ink-subtle">
+              <p className="mt-0.5 text-[0.68rem] leading-4 text-[#F4EEE2]/60">
                 {currencyFormatter.format(member.value)} - {member.time}
               </p>
             </div>
@@ -457,15 +577,18 @@ export function PriceLineChart({
   className,
   markersDisabled = false,
   onSelectedInsightChange,
+  variant = "full",
 }: {
   data: PriceLineChartPoint[];
   markers?: PriceLineChartMarker[];
   className?: string;
   markersDisabled?: boolean;
   onSelectedInsightChange?: (insight: ChartMarkerInsight | null) => void;
+  variant?: PriceLineChartVariant;
 }) {
   const width = 720;
-  const height = 320;
+  const height = variant === "compact" ? 230 : 320;
+  const safeData = getSafeChartData(data);
   const chartRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [hoveredMarkerKey, setHoveredMarkerKey] = useState<string | null>(null);
@@ -479,6 +602,7 @@ export function PriceLineChart({
   const chartId = useId().replace(/:/g, "");
   const areaGradientId = `${chartId}-area`;
   const clipPathId = `${chartId}-plot-area`;
+  const lineGlowId = `${chartId}-line-glow`;
   const {
     points,
     baseline,
@@ -489,25 +613,53 @@ export function PriceLineChart({
     plotHeight,
     markerGuideTop,
   } =
-    getChartGeometry(data, width, height);
+    getChartGeometry(safeData, width, height);
   const areaPath = toAreaPath(points, baseline);
   const linePath = toLinePath(points);
   const finalPoint = points[points.length - 1];
   const finalPointIndex = Math.max(points.length - 1, 0);
-  const highPoint = points.reduce(
-    (best, point) => (point.y < best.y ? point : best),
-    points[0]
-  );
-  const lowPoint = points.reduce(
-    (best, point) => (point.y > best.y ? point : best),
-    points[0]
-  );
-  const highValue = Math.max(...data.map((point) => point.value));
-  const lowValue = Math.min(...data.map((point) => point.value));
-  const highLabelX = width - CHART_LAYOUT.annotation.rightInset;
-  const highLabelY = CHART_LAYOUT.annotation.highLabelY;
-  const lowLabelX = CHART_LAYOUT.annotation.lowLabelX;
-  const lowLabelY = height - CHART_LAYOUT.annotation.lowLabelBottomInset;
+  const highPoint = points.length
+    ? points.reduce((best, point) => (point.y < best.y ? point : best), points[0])
+    : undefined;
+  const lowPoint = points.length
+    ? points.reduce((best, point) => (point.y > best.y ? point : best), points[0])
+    : undefined;
+  const highValue = safeData.length
+    ? Math.max(...safeData.map((point) => point.value))
+    : 0;
+  const lowValue = safeData.length
+    ? Math.min(...safeData.map((point) => point.value))
+    : 0;
+  const showRangeAnnotations =
+    safeData.length >= 2 && renderedSvgSize.width >= (variant === "compact" ? 360 : 320);
+  const highLabel = highPoint
+    ? getPricePillPlacement({
+        point: highPoint,
+        width,
+        plotLeft,
+        plotRight,
+        plotTop,
+        baseline,
+      })
+    : null;
+  const lowLabelBase = lowPoint
+    ? getPricePillPlacement({
+        point: lowPoint,
+        width,
+        plotLeft,
+        plotRight,
+        plotTop,
+        baseline,
+      })
+    : null;
+  const lowLabel =
+    highLabel && lowLabelBase && Math.abs(highLabel.y - lowLabelBase.y) < 22
+      ? {
+          ...lowLabelBase,
+          y: clamp(lowLabelBase.y + 24, plotTop + 12, baseline - 12),
+        }
+      : lowLabelBase;
+  const axisLabelY = height - (variant === "compact" ? 5 : 4);
   const interactiveMarkers = useMemo(() => {
     const visibleMarkers = markersDisabled
       ? []
@@ -515,8 +667,8 @@ export function PriceLineChart({
     const mappedMarkers = visibleMarkers
       .map<InteractiveMarker | null>((marker) => {
           const point = points[marker.index];
-          const value = data[marker.index]?.value;
-          const baseValue = data[0]?.value ?? value ?? 0;
+          const value = safeData[marker.index]?.value;
+          const baseValue = safeData[0]?.value ?? value ?? 0;
           const kind: InteractiveMarkerKind =
             marker.kind ??
             (marker.title || marker.explanation ? "event" : "checkpoint");
@@ -529,23 +681,23 @@ export function PriceLineChart({
             ...marker,
             key: `${kind}-${marker.index}-${marker.label}`,
             kind,
-            time: marker.time ?? data[marker.index]?.label ?? marker.label,
+            time: marker.time ?? safeData[marker.index]?.label ?? marker.label,
             point,
             value,
             changePct: baseValue === 0 ? 0 : ((value - baseValue) / baseValue) * 100,
           } satisfies InteractiveMarker;
         })
       .filter((marker): marker is InteractiveMarker => marker !== null);
-    const finalValue = data[finalPointIndex]?.value;
-    const baseValue = data[0]?.value ?? finalValue ?? 0;
+    const finalValue = safeData[finalPointIndex]?.value;
+    const baseValue = safeData[0]?.value ?? finalValue ?? 0;
 
     if (!markersDisabled && finalPoint && finalValue !== undefined) {
       mappedMarkers.push({
         index: finalPointIndex,
         label: "Current price",
-        key: `current-${finalPointIndex}-${data[finalPointIndex]?.label ?? "latest"}`,
+        key: `current-${finalPointIndex}-${safeData[finalPointIndex]?.label ?? "latest"}`,
         kind: "current",
-        time: data[finalPointIndex]?.label ?? "Latest",
+        time: safeData[finalPointIndex]?.label ?? "Latest",
         point: finalPoint,
         value: finalValue,
         changePct:
@@ -554,7 +706,7 @@ export function PriceLineChart({
     }
 
     return mappedMarkers;
-  }, [data, finalPoint, finalPointIndex, markers, markersDisabled, points]);
+  }, [finalPoint, finalPointIndex, markers, markersDisabled, points, safeData]);
   const markerGroups = useMemo(
     () =>
       resolveMarkerGroups({
@@ -565,7 +717,7 @@ export function PriceLineChart({
         viewBoxWidth: width,
         viewBoxHeight: height,
       }),
-    [hoveredMarkerKey, interactiveMarkers, renderedSvgSize, selectedMarkerKey]
+    [height, hoveredMarkerKey, interactiveMarkers, renderedSvgSize, selectedMarkerKey]
   );
   const hoveredGroup =
     markerGroups.find((group) =>
@@ -577,8 +729,8 @@ export function PriceLineChart({
     ) ?? null;
   const createDataPointMarker = (index: number): InteractiveMarker | null => {
     const point = points[index];
-    const value = data[index]?.value;
-    const baseValue = data[0]?.value ?? value ?? 0;
+    const value = safeData[index]?.value;
+    const baseValue = safeData[0]?.value ?? value ?? 0;
 
     if (!point || value === undefined) {
       return null;
@@ -586,10 +738,10 @@ export function PriceLineChart({
 
     return {
       index,
-      label: "Nearest price point",
-      key: `data-${index}-${data[index]?.label ?? "point"}`,
+      label: "",
+      key: `data-${index}-${safeData[index]?.label ?? "point"}`,
       kind: "data",
-      time: data[index]?.label ?? `Point ${index + 1}`,
+      time: safeData[index]?.label ?? `Point ${index + 1}`,
       point,
       value,
       changePct: baseValue === 0 ? 0 : ((value - baseValue) / baseValue) * 100,
@@ -624,11 +776,11 @@ export function PriceLineChart({
     : selectedDataMarker
       ? createMarkerInsight(selectedDataMarker)
       : null;
-  const axisLabels = data.filter((_, index) => {
-    if (data.length <= 4) return true;
-    if (index === 0 || index === data.length - 1) return true;
-    const step = Math.max(Math.floor((data.length - 1) / 3), 1);
-    return index % step === 0;
+  const axisLabelIndices = getAxisLabelIndices({
+    data: safeData,
+    points,
+    renderedSize: renderedSvgSize,
+    viewBoxWidth: width,
   });
   const getNearestDataPointIndex = (event: { clientX: number; clientY: number }) => {
     const rect = svgRef.current?.getBoundingClientRect();
@@ -720,26 +872,58 @@ export function PriceLineChart({
   return (
     <div
       ref={chartRef}
-          className={cn(
-        "relative overflow-visible rounded-[1.35rem] border border-border/80 bg-[linear-gradient(180deg,color-mix(in_srgb,var(--surface-elevated)_94%,#18222f_6%)_0%,color-mix(in_srgb,var(--surface)_96%,#0a1018_4%)_100%)] p-3 sm:rounded-[1.75rem] sm:p-6",
+      className={cn(
+        "relative overflow-visible rounded-[1.35rem] border border-[#2f72d5]/22 bg-[#070F14]",
+        variant === "compact"
+          ? "p-2.5 sm:rounded-[1.35rem] sm:p-3"
+          : "p-3 sm:rounded-[1.75rem] sm:p-6",
         className
       )}
     >
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(142,216,208,0.14),transparent_34%),radial-gradient(circle_at_bottom_right,rgba(139,132,199,0.06),transparent_28%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_18%,rgba(114,199,190,0.13),transparent_36%),radial-gradient(circle_at_50%_0%,rgba(47,114,213,0.08),transparent_42%),linear-gradient(180deg,#08151d_0%,#070F14_58%,#050a0e_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.34)_0%,transparent_14%,transparent_86%,rgba(0,0,0,0.36)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 shadow-[inset_0_0_70px_rgba(0,0,0,0.42),inset_0_1px_0_rgba(244,238,226,0.025)]" />
 
       <div className="relative">
+        {safeData.length < 2 ? (
+          <div className="grid h-40 place-items-center rounded-[var(--radius-lg)] border border-dashed border-border/70 bg-surface/35 px-5 text-center text-body-sm text-ink-muted sm:h-56">
+            Chart data limited.
+          </div>
+        ) : (
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
-          className="relative h-[260px] w-full sm:h-[360px]"
+          className={cn(
+            "relative w-full",
+            variant === "compact"
+              ? "h-[170px] sm:h-[205px]"
+              : "h-[260px] sm:h-[360px]"
+          )}
           role="img"
           aria-label="Price chart with interactive checkpoints and catalyst markers"
         >
           <defs>
             <linearGradient id={areaGradientId} x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#8ED8D0" stopOpacity="0.28" />
-              <stop offset="100%" stopColor="#8ED8D0" stopOpacity="0" />
+              <stop offset="0%" stopColor="#72c7be" stopOpacity="0.3" />
+              <stop offset="55%" stopColor="#72c7be" stopOpacity="0.11" />
+              <stop offset="100%" stopColor="#72c7be" stopOpacity="0" />
             </linearGradient>
+            <filter
+              id={lineGlowId}
+              x="-8%"
+              y="-16%"
+              width="116%"
+              height="132%"
+              colorInterpolationFilters="sRGB"
+            >
+              <feDropShadow
+                dx="0"
+                dy="0"
+                stdDeviation="3"
+                floodColor="#72c7be"
+                floodOpacity="0.6"
+              />
+            </filter>
             <clipPath id={clipPathId}>
               <rect
                 x={plotLeft}
@@ -758,54 +942,71 @@ export function PriceLineChart({
               x2={plotRight}
               y1={plotTop + plotHeight * position}
               y2={plotTop + plotHeight * position}
-              stroke="rgba(255,255,255,0.08)"
+              stroke="rgba(137,161,194,0.09)"
               strokeDasharray="5 8"
             />
           ))}
 
-          {highPoint ? (
-            <>
+          {showRangeAnnotations && highPoint && highLabel ? (
+            <g>
               <line
                 x1={plotLeft}
                 x2={plotRight}
                 y1={highPoint.y}
                 y2={highPoint.y}
-                stroke="rgba(255,255,255,0.08)"
-                strokeDasharray="3 8"
+                stroke="rgba(114,199,190,0.08)"
+              />
+              <rect
+                x={highLabel.x}
+                y={highLabel.y}
+                width={highLabel.width}
+                height={highLabel.height}
+                rx="10"
+                fill="rgba(114,199,190,0.15)"
+                stroke="rgba(114,199,190,0.3)"
               />
               <text
-                x={highLabelX}
-                y={highLabelY}
-                textAnchor="end"
-                fill="rgba(167,182,200,0.92)"
+                x={highLabel.x + highLabel.width / 2}
+                y={highLabel.y + 13.5}
+                textAnchor="middle"
+                fill="#F4EEE2"
                 fontSize="11"
-                letterSpacing="0.16em"
+                fontWeight="700"
               >
-                HIGH {highValue.toFixed(0)}
+                HIGH ${highValue.toFixed(0)}
               </text>
-            </>
+            </g>
           ) : null}
 
-          {lowPoint ? (
-            <>
+          {showRangeAnnotations && lowPoint && lowLabel ? (
+            <g>
               <line
                 x1={plotLeft}
                 x2={plotRight}
                 y1={lowPoint.y}
                 y2={lowPoint.y}
-                stroke="rgba(255,255,255,0.06)"
-                strokeDasharray="3 8"
+                stroke="rgba(114,199,190,0.06)"
+              />
+              <rect
+                x={lowLabel.x}
+                y={lowLabel.y}
+                width={lowLabel.width}
+                height={lowLabel.height}
+                rx="10"
+                fill="rgba(114,199,190,0.15)"
+                stroke="rgba(114,199,190,0.3)"
               />
               <text
-                x={lowLabelX}
-                y={lowLabelY}
-                fill="rgba(115,131,153,0.88)"
+                x={lowLabel.x + lowLabel.width / 2}
+                y={lowLabel.y + 13.5}
+                textAnchor="middle"
+                fill="#F4EEE2"
                 fontSize="11"
-                letterSpacing="0.16em"
+                fontWeight="700"
               >
-                LOW {lowValue.toFixed(0)}
+                LOW ${lowValue.toFixed(0)}
               </text>
-            </>
+            </g>
           ) : null}
 
           <g clipPath={`url(#${clipPathId})`}>
@@ -813,10 +1014,11 @@ export function PriceLineChart({
             <path
               d={linePath}
               fill="none"
-              stroke="rgba(142, 216, 208, 0.98)"
-              strokeWidth="3.5"
+              stroke="#72c7be"
+              strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
+              filter={`url(#${lineGlowId})`}
             />
           </g>
 
@@ -828,16 +1030,11 @@ export function PriceLineChart({
             const isSelected = group.members.some(
               (member) => selectedMarkerKey === member.key
             );
-            const isEvent = marker.kind === "event";
             const isCurrent = marker.kind === "current";
-            const badgeX = Math.min(
-              Math.max(
-                marker.point.x + (marker.point.x > width * 0.72 ? -16 : 16),
-                12
-              ),
-              width - 12
-            );
-            const badgeY = Math.max(marker.point.y - 16, 12);
+            const captionY =
+              marker.point.y < height * 0.36
+                ? marker.point.y + 19
+                : marker.point.y - 12;
 
             return (
               <g key={`marker-group-${group.key}`}>
@@ -850,95 +1047,47 @@ export function PriceLineChart({
                       markerGuideTop
                     )}
                     y2={baseline}
-                    stroke={
-                      isSelected
-                        ? "rgba(142, 216, 208, 0.34)"
-                        : isEvent
-                          ? "rgba(142,216,208,0.22)"
-                          : "rgba(255,255,255,0.1)"
-                    }
-                    strokeDasharray="3 5"
-                  />
-                ) : null}
-                {isCurrent ? (
-                  <circle
-                    cx={marker.point.x}
-                    cy={marker.point.y}
-                    r={CHART_LAYOUT.endpoint.glowRadius}
-                    fill="rgba(114, 199, 190, 0.1)"
-                  />
-                ) : null}
-                {!isCurrent && (isHovered || isSelected) ? (
-                  <circle
-                    cx={marker.point.x}
-                    cy={marker.point.y}
-                    r={
-                      isSelected
-                        ? CHART_LAYOUT.marker.selectedRadius
-                        : CHART_LAYOUT.marker.hoverRadius
-                    }
-                    fill={
-                      isEvent
-                        ? "rgba(142, 216, 208, 0.14)"
-                        : "rgba(180,196,214,0.11)"
-                    }
+                    stroke="rgba(114,199,190,0.2)"
+                    strokeWidth="1"
                   />
                 ) : null}
                 <circle
                   cx={marker.point.x}
                   cy={marker.point.y}
-                  r={
-                    isCurrent
-                      ? CHART_LAYOUT.endpoint.markerRadius
-                      : isEvent
-                      ? CHART_LAYOUT.marker.radius.event
-                      : CHART_LAYOUT.marker.radius.checkpoint
-                  }
-                  fill="rgba(7, 13, 19, 0.98)"
-                  stroke={
-                    isSelected
-                      ? "rgba(243, 239, 230, 0.94)"
-                      : isCurrent || isEvent
-                        ? "rgba(142, 216, 208, 0.98)"
-                        : "rgba(126, 144, 167, 0.9)"
-                  }
-                  strokeWidth={
-                    isSelected || isCurrent
-                      ? CHART_LAYOUT.marker.strokeWidth.selected
-                      : CHART_LAYOUT.marker.strokeWidth.default
-                  }
+                  r={isSelected || isHovered ? 10 : isCurrent ? 9 : 8}
+                  fill="rgba(114,199,190,0.16)"
                 />
                 <circle
                   cx={marker.point.x}
                   cy={marker.point.y}
-                  r={isCurrent ? 2.5 : isEvent ? 2.2 : 1.7}
-                  fill={
-                    isCurrent || isEvent
-                      ? "rgba(233, 250, 247, 0.96)"
-                      : "rgba(176, 190, 208, 0.92)"
-                  }
+                  r={isSelected || isHovered ? 5 : 4}
+                  fill="#72c7be"
+                  filter={`url(#${lineGlowId})`}
                 />
+                {!isCurrent ? (
+                  <text
+                    x={marker.point.x}
+                    y={captionY}
+                    textAnchor="middle"
+                    fill="rgba(244,238,226,0.6)"
+                    fontSize="10"
+                    fontWeight="600"
+                    aria-hidden
+                  >
+                    {marker.label}
+                  </text>
+                ) : null}
                 {group.members.length > 1 ? (
-                  <g aria-hidden>
-                    <circle
-                      cx={badgeX}
-                      cy={badgeY}
-                      r="7"
-                      fill="rgba(7,12,18,0.96)"
-                      stroke="rgba(142,216,208,0.55)"
-                      strokeWidth="1.4"
-                    />
-                    <text
-                      x={badgeX}
-                      y={badgeY + 3}
-                      textAnchor="middle"
-                      fill="rgba(233,250,247,0.92)"
-                      fontSize="8"
-                      fontWeight="600"
-                    >
-                      {group.members.length}
-                    </text>
-                  </g>
+                  <text
+                    x={marker.point.x + 12}
+                    y={captionY}
+                    fill="rgba(244,238,226,0.52)"
+                    fontSize="9"
+                    fontWeight="600"
+                    aria-hidden
+                  >
+                    +{group.members.length - 1}
+                  </text>
                 ) : null}
               </g>
             );
@@ -954,42 +1103,33 @@ export function PriceLineChart({
                   markerGuideTop
                 )}
                 y2={baseline}
-                stroke="rgba(255,255,255,0.12)"
-                strokeDasharray="3 5"
+                stroke="rgba(114,199,190,0.16)"
+                strokeWidth="1"
               />
               {selectedDataMarker ? (
                 <circle
                   cx={activeDataMarker.point.x}
                   cy={activeDataMarker.point.y}
-                  r={CHART_LAYOUT.marker.hoverRadius}
-                  fill="rgba(180,196,214,0.1)"
+                  r="9"
+                  fill="rgba(114,199,190,0.12)"
                 />
               ) : null}
               <circle
                 cx={activeDataMarker.point.x}
                 cy={activeDataMarker.point.y}
-                r="4.8"
-                fill="rgba(7, 13, 19, 0.98)"
-                stroke="rgba(126, 144, 167, 0.86)"
-                strokeWidth="2.4"
-              />
-              <circle
-                cx={activeDataMarker.point.x}
-                cy={activeDataMarker.point.y}
-                r="1.5"
-                fill="rgba(176, 190, 208, 0.92)"
+                r="3.5"
+                fill="#72c7be"
+                opacity="0.86"
+                filter={`url(#${lineGlowId})`}
               />
             </g>
           ) : null}
 
-          {axisLabels.map((labelPoint) => {
-            const pointIndex = data.findIndex(
-              (point) =>
-                point.label === labelPoint.label && point.value === labelPoint.value
-            );
+          {axisLabelIndices.map((pointIndex) => {
+            const labelPoint = safeData[pointIndex];
             const point = points[pointIndex];
 
-            if (!point) {
+            if (!point || !labelPoint) {
               return null;
             }
 
@@ -997,16 +1137,17 @@ export function PriceLineChart({
               <text
                 key={`${labelPoint.label}-${pointIndex}`}
                 x={point.x}
-                y={height - 4}
+                y={axisLabelY}
                 textAnchor="middle"
                 fill="rgba(139,154,174,0.88)"
-                fontSize="11"
+                fontSize={variant === "compact" ? "10" : "11"}
               >
                 {labelPoint.label}
               </text>
             );
           })}
         </svg>
+        )}
 
         <div
           className={cn(
@@ -1112,7 +1253,8 @@ export function SparklineChart({
 }) {
   const width = 120;
   const height = 44;
-  const { points, baseline } = getSparklineGeometry(data, width, height);
+  const safeData = getSafeChartData(data);
+  const { points, baseline } = getSparklineGeometry(safeData, width, height);
   const linePath = toLinePath(points);
   const areaPath = toAreaPath(points, baseline);
   const finalPoint = points[points.length - 1];

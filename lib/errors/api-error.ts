@@ -14,7 +14,7 @@ export type NormalizedApiError = {
   code: string;
   retryable: boolean;
   resetAt?: string;
-};
+} & Record<string, unknown>;
 
 const defaultMessages: Record<ApiErrorCode, string> = {
   AUTH_REQUIRED: "Authentication required.",
@@ -58,13 +58,16 @@ export function normalizedApiError({
   message,
   status,
   resetAt,
+  extra,
 }: {
   code: ApiErrorCode;
   message?: string;
   status?: number;
   resetAt?: string;
+  extra?: Record<string, unknown>;
 }) {
   const body: NormalizedApiError = {
+    ...(extra ?? {}),
     error: safeErrorMessage(code, message),
     code: publicCodeByCode[code],
     retryable:
@@ -81,11 +84,22 @@ export function normalizedApiError({
 }
 
 export function sanitizeProviderError(error: unknown) {
-  if (process.env.NODE_ENV === "development") {
-    return error instanceof Error ? error.message : String(error);
-  }
-
+  void error;
   return "Provider request failed.";
+}
+
+export function providerUnavailableResponse(message = "Provider unavailable. Please retry.") {
+  return normalizedApiError({
+    code: "PROVIDER_UNAVAILABLE",
+    message,
+  });
+}
+
+export function validationErrorResponse(message = "Request could not be validated.") {
+  return normalizedApiError({
+    code: "VALIDATION_ERROR",
+    message,
+  });
 }
 
 export function logServerError(

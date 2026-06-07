@@ -2,6 +2,11 @@ import { cacheAvailable, setCache } from "@/lib/cache";
 import { quoteCacheKey, searchCacheKey } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
 import { redisAvailable } from "@/lib/cache/redis-cache";
+import {
+  getObservabilityCounterCount,
+  observabilityAvailable,
+} from "@/lib/diagnostics/observability";
+import { normalizedApiError } from "@/lib/errors/api-error";
 import { buildDailyMarketBrief } from "@/lib/market/brief";
 import {
   getFinnhubCompanyProfile,
@@ -12,7 +17,19 @@ import type { StockQuote } from "@/lib/market-data/types";
 import { twelveDataChartProvider } from "@/lib/market-data/twelve-data";
 import { getFinnhubCompanyNews } from "@/lib/news/finnhub";
 import { getStructuredWordingProvider } from "@/lib/ai/providers";
-import { rateLimit, RATE_LIMITS } from "@/lib/security/rate-limit";
+import {
+  apiRouteRiskMapAvailable,
+  getSecurityPostureSummary,
+  securityPostureAvailable,
+} from "@/lib/security/api-route-map";
+import { authGuardAvailable } from "@/lib/security/auth";
+import { securityHeadersConfigured } from "@/lib/security/headers";
+import {
+  rateLimit,
+  RATE_LIMITS,
+  refreshCooldown,
+  REFRESH_COOLDOWNS,
+} from "@/lib/security/rate-limit";
 import {
   validateExplainRequestBody,
   validateSearchQuery,
@@ -65,8 +82,14 @@ export async function runDiagnostics({
     timeCheck("search-provider", "Search Provider", checkSearchProvider),
     timeCheck("cache-layer", "Cache Layer", checkCacheLayer),
     timeCheck("rate-limit", "Rate Limit Helper", checkRateLimitHelper),
+    timeCheck("refresh-protection", "Refresh Protection", checkRefreshProtection),
     timeCheck("request-validation", "Request Validation", checkValidationHelper),
+    timeCheck("normalized-errors", "Normalized API Errors", checkApiErrorReadiness),
+    timeCheck("observability", "Safe Observability", checkObservabilityReadiness),
     timeCheck("auth-guards", "Auth Guard Consistency", checkAuthGuardReadiness),
+    timeCheck("api-route-map", "API Route Risk Map", checkApiRouteMapReadiness),
+    timeCheck("security-posture", "Security Posture", checkSecurityPosture),
+    timeCheck("security-headers", "Security Headers", checkSecurityHeaderReadiness),
     timeCheck("explanation-engine", "Structured Explanation Engine", checkExplanationEngine),
     timeCheck("market-brief", "Market Brief Readiness", checkMarketBriefReadiness),
   ]);
@@ -92,6 +115,20 @@ async function checkRateLimitHelper() {
   } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
 }
 
+async function checkRefreshProtection() {
+  const key = `diagnostics-refresh:${Date.now()}:${Math.random()}`;
+  const first = await refreshCooldown(key, REFRESH_COOLDOWNS.search);
+  const second = await refreshCooldown(key, REFRESH_COOLDOWNS.search);
+
+  return {
+    status: first.allowed && !second.allowed ? "ok" : "degraded",
+    message:
+      first.allowed && !second.allowed
+        ? "Refresh cooldown helper prevents rapid repeated refresh bypasses."
+        : "Refresh cooldown helper did not block a repeated smoke-test refresh.",
+  } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
+}
+
 async function checkValidationHelper() {
   const ticker = validateTicker("NVDA");
   const query = validateSearchQuery("Apple");
@@ -111,11 +148,80 @@ async function checkValidationHelper() {
   } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
 }
 
+async function checkApiErrorReadiness() {
+  return {
+    status: typeof normalizedApiError === "function" ? "ok" : "unavailable",
+    message:
+      typeof normalizedApiError === "function"
+        ? "Normalized API error helper available."
+        : "Normalized API error helper unavailable.",
+  } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
+}
+
+async function checkObservabilityReadiness() {
+  return {
+    status: observabilityAvailable() ? "ok" : "unavailable",
+    message: observabilityAvailable()
+      ? `Safe route observability helper ready. Active in-memory label count: ${getObservabilityCounterCount()}.`
+      : "Safe route observability helper unavailable.",
+  } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
+}
+
 async function checkAuthGuardReadiness() {
   return {
-    status: "ok",
+    status: authGuardAvailable() ? "ok" : "unavailable",
+    message: authGuardAvailable()
+      ? "Shared API auth guard helper available for user-scoped routes."
+      : "Shared API auth guard helper unavailable.",
+  } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
+}
+
+async function checkApiRouteMapReadiness() {
+  return {
+    status: apiRouteRiskMapAvailable() ? "ok" : "unavailable",
+    message: apiRouteRiskMapAvailable()
+      ? "Internal API route risk map available."
+      : "Internal API route risk map unavailable.",
+  } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
+}
+
+async function checkSecurityPosture() {
+  if (!securityPostureAvailable()) {
+    return {
+      status: "unavailable",
+      message: "Security posture matrix unavailable.",
+    } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
+  }
+
+  const summary = getSecurityPostureSummary();
+  const missingCoreCoverage =
+    summary.missingValidation.length +
+    summary.missingRateLimit.length +
+    summary.missingNormalizedErrors.length +
+    summary.missingRefreshCooldownOnCacheBackedRoutes.length;
+  const observabilityNote = summary.missingObservability.length
+    ? ` Observability labels are still intentionally lighter on ${summary.missingObservability.length} low-cost/internal routes.`
+    : "";
+
+  return {
+    status: missingCoreCoverage === 0 ? "ok" : "degraded",
     message:
-      "Protected APIs require an authenticated session before returning user-scoped data.",
+      `Tracked ${summary.totalRoutes} API routes: ${summary.authRequiredRoutes} auth-required, ` +
+      `${summary.providerBackedRoutes} provider-backed, ${summary.highCostRoutes} high-cost. ` +
+      `Coverage: ${summary.rateLimitCoverage}/${summary.totalRoutes} rate-limited, ` +
+      `${summary.validationCoverage}/${summary.totalRoutes} validated, ` +
+      `${summary.normalizedErrorCoverage}/${summary.totalRoutes} normalized errors, ` +
+      `${summary.observabilityCoverage}/${summary.totalRoutes} observability-labeled.` +
+      observabilityNote,
+  } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
+}
+
+async function checkSecurityHeaderReadiness() {
+  return {
+    status: securityHeadersConfigured() ? "ok" : "degraded",
+    message: securityHeadersConfigured()
+      ? "Baseline security headers configured in shared helper."
+      : "Security header helper is incomplete.",
   } satisfies Omit<DiagnosticCheck, "id" | "label" | "latencyMs">;
 }
 

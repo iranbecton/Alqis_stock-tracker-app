@@ -35,35 +35,52 @@ import { getCache, setCache, withCache } from "@/lib/cache";
 import { explanationCacheKey, stableHash } from "@/lib/cache/keys";
 import { CACHE_TTL } from "@/lib/cache/ttl";
 import {
+  recordCacheOutcome,
+  recordRefreshCooldown,
+  recordRouteEvent,
+} from "@/lib/diagnostics/observability";
+import {
   logServerError,
   normalizedApiError,
   rateLimitedResponse,
 } from "@/lib/errors/api-error";
 import { saveExplanationHistory } from "@/lib/explanations/save-explanation";
-import { isValidTicker } from "@/lib/market-data/validation";
 import {
   getRateLimitKey,
   rateLimit,
   RATE_LIMITS,
+  refreshCooldown,
+  REFRESH_COOLDOWNS,
 } from "@/lib/security/rate-limit";
-import { validateExplainRequestBody } from "@/lib/security/validation";
+import {
+  parseJsonObject,
+  validateExplainRequestBody,
+} from "@/lib/security/validation";
 import { createClient } from "@/lib/supabase/server";
+
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const ROUTE = "/api/explain/why-moving";
 
-async function parseRequestBody(request: Request): Promise<WhyMovingRequest | null> {
-  try {
-    const validation = validateExplainRequestBody(await request.json());
+async function parseRequestBody(request: Request):
+  Promise<{ ok: true; value: WhyMovingRequest } | { ok: false; error: string }> {
+  const body = await parseJsonObject(request);
 
-    if (!validation.ok) {
-      return null;
-    }
-
-    return validation.value;
-  } catch {
-    return null;
+  if (!body.ok) {
+    return body;
   }
+
+  const validation = validateExplainRequestBody(body.value);
+
+  if (!validation.ok) {
+    return validation;
+  }
+
+  return {
+    ok: true,
+    value: validation.value,
+  };
 }
 
 async function fetchInternalJson<T>(pathname: string): Promise<T | undefined> {
@@ -429,6 +446,7 @@ function createEvidenceHash(inputs: WhyMovingInputs) {
 
 async function buildValidatedExplanation(inputs: WhyMovingInputs) {
   const causes = scoreCauses(inputs);
+  inputs.topCauses = causes.map(c => ({ tag: c.tag, score: c.score }));
   const confidence = scoreConfidence(inputs, causes);
   const response = buildWhyMovingResponse({ inputs, causes, confidence });
   const validation = validateWhyMovingResponse(response);
@@ -450,18 +468,16 @@ async function buildValidatedExplanation(inputs: WhyMovingInputs) {
 export async function POST(request: Request) {
   const parsedRequest = await parseRequestBody(request);
 
-  if (!parsedRequest) {
-    return normalizedApiError({
-      code: "VALIDATION_ERROR",
-      message:
-        "Request body must include ticker and timeframe. Supported timeframes: 1D, 5D, 1M.",
+  if (!parsedRequest.ok) {
+    recordRouteEvent({
+      category: "validation_failed",
+      route: ROUTE,
+      method: "POST",
+      reason: "invalid_explain_body",
     });
-  }
-
-  if (!isValidTicker(parsedRequest.ticker)) {
     return normalizedApiError({
       code: "VALIDATION_ERROR",
-      message: "Invalid ticker symbol.",
+      message: parsedRequest.error,
     });
   }
 
@@ -473,20 +489,61 @@ export async function POST(request: Request) {
     getRateLimitKey(
       request,
       user?.id,
-      parsedRequest.forceRefresh ? "explain-refresh" : "explain"
+      parsedRequest.value.forceRefresh ? "explain-refresh" : "explain"
     ),
-    parsedRequest.forceRefresh ? RATE_LIMITS.explainRefresh : RATE_LIMITS.explain
+    parsedRequest.value.forceRefresh
+      ? RATE_LIMITS.explainRefresh
+      : RATE_LIMITS.explain
   );
 
   if (!limit.allowed) {
+    recordRouteEvent({
+      category: "rate_limit_blocked",
+      route: ROUTE,
+      method: "POST",
+      ticker: parsedRequest.value.ticker,
+      range: parsedRequest.value.timeframe,
+      refreshRequested: parsedRequest.value.forceRefresh,
+    });
     return rateLimitedResponse(limit.resetAt);
   }
+  recordRouteEvent({
+    category: "route_request",
+    route: ROUTE,
+    method: "POST",
+    ticker: parsedRequest.value.ticker,
+    range: parsedRequest.value.timeframe,
+    refreshRequested: parsedRequest.value.forceRefresh,
+  });
 
-  const inputs = await getWhyMovingInputs(parsedRequest);
+  const refreshWindow = parsedRequest.value.forceRefresh
+    ? await refreshCooldown(
+        getRateLimitKey(
+          request,
+          user?.id,
+          `explain-refresh-window:${parsedRequest.value.ticker}:${parsedRequest.value.timeframe}`
+        ),
+        REFRESH_COOLDOWNS.explain
+      )
+    : { allowed: true };
+  recordRefreshCooldown({
+    route: ROUTE,
+    requested: parsedRequest.value.forceRefresh === true,
+    allowed: refreshWindow.allowed,
+    method: "POST",
+    ticker: parsedRequest.value.ticker,
+    range: parsedRequest.value.timeframe,
+  });
+  const effectiveRequest = {
+    ...parsedRequest.value,
+    forceRefresh: parsedRequest.value.forceRefresh && refreshWindow.allowed,
+  };
+
+  const inputs = await getWhyMovingInputs(effectiveRequest);
   const evidenceHash = createEvidenceHash(inputs);
   const explainKey = explanationCacheKey(
-    parsedRequest.ticker,
-    parsedRequest.timeframe,
+    effectiveRequest.ticker,
+    effectiveRequest.timeframe,
     evidenceHash
   );
   let response: WhyMovingResponse;
@@ -499,15 +556,31 @@ export async function POST(request: Request) {
       explainKey,
       CACHE_TTL.explanation,
       () => buildValidatedExplanation(inputs),
-      { forceRefresh: parsedRequest.forceRefresh }
+      { forceRefresh: effectiveRequest.forceRefresh }
     );
     response = cachedExplanation.data;
     explanationMeta = cachedExplanation.meta;
+    recordCacheOutcome(ROUTE, explanationMeta, {
+      method: "POST",
+      ticker: effectiveRequest.ticker,
+      range: effectiveRequest.timeframe,
+      refreshRequested: parsedRequest.value.forceRefresh,
+      refreshAllowed: effectiveRequest.forceRefresh,
+    });
   } catch (error) {
     logServerError("[ALQIS explain] Structured explanation failed", {
-      ticker: parsedRequest.ticker,
-      timeframe: parsedRequest.timeframe,
+      ticker: effectiveRequest.ticker,
+      timeframe: effectiveRequest.timeframe,
       reason: error instanceof Error ? error.message : "Unknown explanation error",
+    });
+
+    recordRouteEvent({
+      category: "normalized_error_returned",
+      route: ROUTE,
+      method: "POST",
+      ticker: effectiveRequest.ticker,
+      range: effectiveRequest.timeframe,
+      reason: "structured_explanation_failed",
     });
 
     return normalizedApiError({
@@ -524,7 +597,7 @@ export async function POST(request: Request) {
     explanationHash: evidenceHash,
   });
 
-  if (!parsedRequest.useAIWording) {
+  if (!parsedRequest.value.useAIWording) {
     return NextResponse.json({
       ...response,
       ...explanationMeta,
@@ -537,11 +610,19 @@ export async function POST(request: Request) {
     process.env.AI_WORDING_PROVIDER ?? "structured"
   }`;
 
-  if (!parsedRequest.forceRefresh) {
+  if (!effectiveRequest.forceRefresh) {
     const cachedRouteResponse =
       await getCache<AIWordingRouteResponse>(wordingCacheKey);
 
     if (cachedRouteResponse) {
+      recordRouteEvent({
+        category: "cache_hit",
+        route: ROUTE,
+        method: "POST",
+        ticker: effectiveRequest.ticker,
+        range: effectiveRequest.timeframe,
+        status: "wording_route_response",
+      });
       return NextResponse.json({
         ...cachedRouteResponse,
         cacheStatus: "hit",
@@ -563,6 +644,19 @@ export async function POST(request: Request) {
     aiWordingResult.aiWordingProvider,
     aiWordingResult.aiWordingFailureReason
   );
+
+  if (routeResponse.aiWordingStatus !== "ok") {
+    recordRouteEvent({
+      category: "provider_fallback",
+      route: ROUTE,
+      method: "POST",
+      ticker: effectiveRequest.ticker,
+      range: effectiveRequest.timeframe,
+      provider: routeResponse.aiWordingProvider,
+      status: routeResponse.aiWordingStatus,
+      reason: routeResponse.aiWordingFailureReason ?? "wording_unavailable",
+    });
+  }
 
   if (routeResponse.aiWordingStatus === "ok") {
     await setCache(wordingCacheKey, routeResponse, CACHE_TTL.explanation);
