@@ -155,8 +155,9 @@ export async function GET(request: Request, context: RouteContext) {
           symbol,
           range,
           status: result.status,
-          providerStatus: result.providerStatus,
-          providerMessage: result.providerMessage,
+          category: result.providerRateLimited
+            ? "chart_rate_limited"
+            : "chart_provider_unavailable",
         });
       }
 
@@ -177,28 +178,17 @@ export async function GET(request: Request, context: RouteContext) {
         code: result.providerRateLimited
           ? "RATE_LIMITED"
           : "PROVIDER_UNAVAILABLE",
-        message: result.providerAccessError
-          ? "Chart provider access error."
-          : result.providerRateLimited
-            ? "Chart provider rate limited."
-            : "Chart provider error.",
+        message: result.providerRateLimited
+          ? "Chart data temporarily unavailable. Please retry."
+          : "Chart data unavailable.",
         status: result.providerRateLimited ? 429 : 502,
         extra: {
-          provider: result.provider,
-          providerAccessError: Boolean(result.providerAccessError),
-          providerRateLimited: Boolean(result.providerRateLimited),
-          providerStatus: result.providerStatus,
-          providerMessage: getSafeChartProviderMessage(result),
           fallback: "demo-chart-structure",
           symbol,
           range,
           ...meta,
           points: [],
-          status: result.providerAccessError
-            ? "provider_access_error"
-            : result.providerRateLimited
-              ? "rate_limited"
-              : "provider_error",
+          status: "data_unavailable",
         },
       });
     }
@@ -222,19 +212,16 @@ export async function GET(request: Request, context: RouteContext) {
       points: result.points,
       status: result.status,
       fallback: result.points.length > 0 ? null : "demo-chart-structure",
-      providerMessage:
-        result.status === "empty"
-          ? "Chart provider returned no points for this range."
-          : undefined,
       ...meta,
     });
   } catch (error) {
     if (process.env.NODE_ENV === "development") {
+      void error;
       console.error("[ALQIS chart route] Unexpected chart provider failure", {
         provider: "twelve-data",
         symbol,
         range,
-        error,
+        category: "unexpected_chart_provider_failure",
       });
     }
 
@@ -250,30 +237,14 @@ export async function GET(request: Request, context: RouteContext) {
 
     return normalizedApiError({
       code: "PROVIDER_UNAVAILABLE",
-      message: "Chart provider unavailable.",
+      message: "Chart data unavailable.",
       extra: {
-        provider: "twelve-data",
         fallback: "demo-chart-structure",
         symbol,
         range,
         points: [],
-        status: "provider_error",
+        status: "data_unavailable",
       },
     });
   }
-}
-
-function getSafeChartProviderMessage(result: {
-  providerAccessError?: boolean;
-  providerRateLimited?: boolean;
-}) {
-  if (result.providerAccessError) {
-    return "Chart provider access is unavailable for this resource.";
-  }
-
-  if (result.providerRateLimited) {
-    return "Chart provider is rate limited. Please retry later.";
-  }
-
-  return "Chart provider unavailable. Please retry.";
 }

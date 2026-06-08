@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { hashId } from "@/lib/security/rate-limit";
 import {
   normalizePreferenceTicker,
   normalizePreferencesRow,
@@ -42,7 +43,10 @@ export async function updateUserPreferences(
 
   if (error) {
     if (process.env.NODE_ENV === "development") {
-      console.error("[ALQIS preferences] Update failed", { userId, error });
+      console.error("[ALQIS preferences] Update failed", {
+        userHash: hashId(userId),
+        category: "preferences_update_failed",
+      });
     }
 
     throw new Error("Preferences unavailable.");

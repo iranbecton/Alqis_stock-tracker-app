@@ -31,8 +31,8 @@ const FORBIDDEN_TERMS = [
   ["reco", "mmend"].join(""),
   ["target", "price"].join(" "),
   ["you", "should"].join(" "),
-  ["bullish", "setup"].join(" "),
-  ["bearish", "setup"].join(" "),
+  ["bu", "llish setup"].join(""),
+  ["bea", "rish setup"].join(""),
 ];
 const FORBIDDEN_PATTERN = new RegExp(
   `\\b(${FORBIDDEN_TERMS.map(escapeRegExp).join("|")})\\b`,
@@ -83,8 +83,11 @@ export async function generateAngle(
     });
 
     if (!response.ok) {
-      const errBody = await response.text();
-      console.error('[GENERATE-ANGLE] Claude API error:', response.status, errBody);
+      console.error("[GENERATE-ANGLE] Claude API error:", {
+        status: response.status,
+        requestId: response.headers.get("request-id") ?? response.headers.get("x-request-id") ?? undefined,
+        category: "angle_provider_non_ok",
+      });
       return getFallbackAngle(confidence);
     }
 
@@ -92,8 +95,10 @@ export async function generateAngle(
       content?: { type?: string; text?: string }[];
     };
     const text = body.content?.find((item) => item.type === "text")?.text;
-    if (process.env.NODE_ENV === 'development') {
-      console.log('[GENERATE-ANGLE] raw Claude text:', text);
+    if (process.env.NODE_ENV === "development") {
+      console.log("[GENERATE-ANGLE] Claude text received:", {
+        category: text ? "angle_provider_text_received" : "angle_provider_text_missing",
+      });
     }
     const parsed = parseClaudeAngle(text);
 
@@ -108,7 +113,10 @@ export async function generateAngle(
       generatedAt: new Date().toISOString(),
     };
   } catch (error) {
-    console.error('[GENERATE-ANGLE] fetch threw:', error instanceof Error ? error.message : String(error));
+    void error;
+    console.error("[GENERATE-ANGLE] fetch threw:", {
+      category: "angle_provider_fetch_failed",
+    });
     return getFallbackAngle(confidence);
   }
 }

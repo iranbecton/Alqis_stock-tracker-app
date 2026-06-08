@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { hashId } from "@/lib/security/rate-limit";
 import {
   createDefaultPreferences,
   normalizePreferencesRow,
@@ -20,7 +21,10 @@ export async function getUserPreferences(
 
   if (error) {
     if (process.env.NODE_ENV === "development") {
-      console.error("[ALQIS preferences] Load failed", { userId, error });
+      console.error("[ALQIS preferences] Load failed", {
+        userHash: hashId(userId),
+        category: "preferences_load_failed",
+      });
     }
 
     return createDefaultPreferences(userId);

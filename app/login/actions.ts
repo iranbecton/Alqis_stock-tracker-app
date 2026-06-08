@@ -20,10 +20,56 @@ function withStatus(pathname: string, status: "error" | "success", message: stri
   return `${pathname}?${params.toString()}`;
 }
 
-function logAuthError(message: string, error?: unknown) {
+function logAuthError(message: string, category?: string) {
   if (process.env.NODE_ENV === "development") {
-    console.error(`[ALQIS auth] ${message}`, error ?? "");
+    console.error(`[ALQIS auth] ${message}`, {
+      category: category ?? "auth_error",
+    });
   }
+}
+
+function getAuthErrorCategory(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return "unknown";
+  }
+
+  const record = error as Record<string, unknown>;
+  const code = typeof record.code === "string" ? record.code.toLowerCase() : "";
+  const status = typeof record.status === "number" ? record.status : undefined;
+
+  if (status === 429 || code.includes("rate_limit") || code.includes("too_many")) {
+    return "rate_limited";
+  }
+
+  if (code.includes("email_not_confirmed") || code.includes("email_not_verified")) {
+    return "email_not_confirmed";
+  }
+
+  if (
+    code.includes("invalid_credentials") ||
+    code.includes("invalid_login") ||
+    code.includes("user_not_found")
+  ) {
+    return "invalid_credentials";
+  }
+
+  return "unknown";
+}
+
+function getSignInErrorMessage(category: string) {
+  if (category === "email_not_confirmed") {
+    return "Please confirm your email address before signing in.";
+  }
+
+  if (category === "rate_limited") {
+    return "Too many attempts. Please try again shortly.";
+  }
+
+  if (category === "invalid_credentials") {
+    return "Invalid email or password.";
+  }
+
+  return "Something went wrong. Please try again.";
 }
 
 export async function signInAction(formData: FormData) {
@@ -54,9 +100,10 @@ export async function signInAction(formData: FormData) {
   });
 
   if (error) {
-    logAuthError("Login failed", error);
+    const category = getAuthErrorCategory(error);
+    logAuthError("Login failed", category);
 
-    redirect(withStatus("/login", "error", error.message));
+    redirect(withStatus("/login", "error", getSignInErrorMessage(category)));
   }
 
   const userId = data.user?.id;

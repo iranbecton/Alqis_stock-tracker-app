@@ -80,6 +80,10 @@ export async function rateLimit(
   return result;
 }
 
+export function hashId(value: string) {
+  return stableHash(value).slice(0, 8);
+}
+
 export async function refreshCooldown(
   key: string,
   cooldownSeconds: number
@@ -148,7 +152,23 @@ function logRefreshCooldown(
 
   console.error("[ALQIS security] refresh cooldown", {
     status,
-    key,
+    route: getRouteIdentifier(key),
+    identityHash: getIdentityHash(key),
     resetAt,
   });
+}
+
+function getRouteIdentifier(key: string) {
+  return key.split(":")[0] || "api";
+}
+
+function getIdentityHash(key: string) {
+  const marker = key.includes(":user:") ? ":user:" : ":ip:";
+  const markerIndex = key.indexOf(marker);
+
+  if (markerIndex === -1) {
+    return hashId(key);
+  }
+
+  return hashId(key.slice(markerIndex + marker.length));
 }
