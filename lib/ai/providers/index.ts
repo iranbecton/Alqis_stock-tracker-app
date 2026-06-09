@@ -1,5 +1,5 @@
 import type { AIWordingProvider } from "@/lib/ai/providers/types";
-import { openAIWordingProvider } from "@/lib/ai/providers/openai";
+import { anthropicWordingProvider } from "@/lib/ai/providers/anthropic";
 import { structuredWordingProvider } from "@/lib/ai/providers/structured";
 
 export function getAIWordingProvider(): AIWordingProvider {
@@ -13,19 +13,18 @@ export function getAIWordingProvider(): AIWordingProvider {
     return structuredWordingProvider;
   }
 
-  if (provider === "openai") {
-    return openAIWordingProvider;
+  if (provider === "anthropic") {
+    return anthropicWordingProvider;
   }
 
-  if (provider === "anthropic") {
-    throw new Error(
-      "AI_WORDING_PROVIDER=anthropic is reserved for future Claude support."
+  // Unknown provider - fall back to structured and log in development
+  if (process.env.NODE_ENV === "development") {
+    console.error(
+      `[ALQIS] Unknown AI_WORDING_PROVIDER "${provider}". Falling back to structured.`
     );
   }
 
-  throw new Error(
-    `Unknown AI_WORDING_PROVIDER "${provider}". Supported providers: structured, openai.`
-  );
+  return structuredWordingProvider;
 }
 
 export function getStructuredWordingProvider(): AIWordingProvider {
